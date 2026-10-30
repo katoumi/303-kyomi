@@ -47,6 +47,7 @@ COGS = [
     "cogs.tickets",
     "cogs.bumping",
     "cogs.help_cog",
+    "cogs.snapshot",
 ]
 
 

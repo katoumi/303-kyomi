@@ -61,10 +61,24 @@ class HelpPopupModal(discord.ui.Modal, title="303  •  kyomi manual"):
             required=False,
         )
 
+        snapshot_guide = discord.ui.TextInput(
+            label="◇ disaster recovery & snapshots",
+            style=discord.TextStyle.paragraph,
+            default=(
+                "╰ /snapshot create [label] — capture server structure\n"
+                "╰ /snapshot list — view all saved backup points\n"
+                "╰ /snapshot diff [id] — detect deleted roles & channels\n"
+                "╰ /snapshot restore <id> — recreate wiped structure\n"
+                "╰ /snapshot export <id> — download cold storage json"
+            ),
+            required=False,
+        )
+
         self.add_item(mod_guide)
         self.add_item(automod_guide)
         self.add_item(tickets_guide)
         self.add_item(bumps_logs_guide)
+        self.add_item(snapshot_guide)
 
     async def on_submit(self, interaction: discord.Interaction):
         # Closing/submitting the modal leaves zero messages in chat

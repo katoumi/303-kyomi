@@ -106,6 +106,17 @@ class Database:
                 reason TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS server_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id INTEGER NOT NULL,
+                creator_id INTEGER NOT NULL,
+                label TEXT NOT NULL,
+                roles_json TEXT NOT NULL,
+                channels_json TEXT NOT NULL,
+                metadata_json TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         migrations = [
@@ -409,3 +420,57 @@ class Database:
         )
         await self.conn.commit()
         return cursor.lastrowid or 0
+
+    # --- Server Snapshots & Recovery ---
+    async def save_snapshot(
+        self,
+        guild_id: int,
+        creator_id: int,
+        label: str,
+        roles_json: str,
+        channels_json: str,
+        metadata_json: str,
+    ) -> int:
+        assert self.conn is not None
+        cursor = await self.conn.execute(
+            """
+            INSERT INTO server_snapshots (guild_id, creator_id, label, roles_json, channels_json, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (guild_id, creator_id, label, roles_json, channels_json, metadata_json),
+        )
+        await self.conn.commit()
+        return cursor.lastrowid or 0
+
+    async def get_snapshots(self, guild_id: int) -> list[dict]:
+        assert self.conn is not None
+        async with self.conn.execute(
+            """
+            SELECT id, guild_id, creator_id, label, metadata_json, created_at
+            FROM server_snapshots
+            WHERE guild_id = ?
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (guild_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def get_snapshot_by_id(self, snapshot_id: int) -> dict | None:
+        assert self.conn is not None
+        async with self.conn.execute(
+            "SELECT * FROM server_snapshots WHERE id = ?",
+            (snapshot_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+    async def delete_snapshot(self, snapshot_id: int) -> bool:
+        assert self.conn is not None
+        cursor = await self.conn.execute(
+            "DELETE FROM server_snapshots WHERE id = ?",
+            (snapshot_id,),
+        )
+        await self.conn.commit()
+        return cursor.rowcount > 0
