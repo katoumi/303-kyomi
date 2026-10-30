@@ -47,12 +47,22 @@ class ModBot(commands.Bot):
             await self.load_extension(cog)
             logger.info("Loaded extension: %s", cog)
 
+    @commands.command(name="sync")
+    @commands.has_permissions(administrator=True)
+    async def sync_cmd(self, ctx: commands.Context):
         synced = await self.tree.sync()
-        logger.info("Synchronized %d global slash command(s).", len(synced))
+        await ctx.send(f"*synced `{len(synced)}` slash commands.*")
 
     async def on_ready(self) -> None:
         assert self.user is not None
         logger.info("Logged in as %s (ID: %d)", self.user, self.user.id)
+        if not getattr(self, "_commands_synced", False):
+            self._commands_synced = True
+            try:
+                synced = await self.tree.sync()
+                logger.info("Synchronized %d global slash command(s).", len(synced))
+            except Exception as exc:
+                logger.warning("Skipping startup tree.sync due to rate limit: %s", exc)
         await self.change_presence(
             status=discord.Status.dnd,
             activity=discord.CustomActivity(name="303  •  watching"),
@@ -69,21 +79,27 @@ async def main() -> None:
         )
         return
 
-    bot = ModBot(db_path=db_path)
-    await bot.db.connect()
-    logger.info("Connected to SQLite database at %s", bot.db.db_path)
+    db = Database(db_path)
+    await db.connect()
+    logger.info("Connected to SQLite database at %s", db.db_path)
 
     # Start the Web Dashboard & healthcheck server BEFORE Discord login
     # so cloud hosts (Render/Koyeb) mark the deployment as LIVE immediately
-    dashboard = WebDashboard(bot, bot.db)
+    bot = ModBot(db_path=db_path)
+    bot.db = db
+    dashboard = WebDashboard(bot, db)
     await dashboard.start()
     logger.info("Web Dashboard listening on port %d", dashboard.port)
 
-    # Connect to Discord with automatic backoff if shared cloud IP is rate-limited (429)
+    # Connect to Discord with proper client reset if shared cloud IP is rate-limited (429)
     retry_delay = 15
     while True:
+        bot = ModBot(db_path=db_path)
+        bot.db = db
+        dashboard.bot = bot
         try:
-            await bot.start(token)
+            async with bot:
+                await bot.start(token)
             break
         except discord.HTTPException as exc:
             if exc.status == 429:
