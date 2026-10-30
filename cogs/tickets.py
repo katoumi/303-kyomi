@@ -877,13 +877,14 @@ class TicketPanelView(discord.ui.View):
         self.add_item(TicketCategorySelect(bot))
 
 
-class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
+class CustomPanelModal(discord.ui.Modal, title="ticket panel builder"):
     panel_text = discord.ui.TextInput(
-        label="panel content / text",
+        label="panel content (supports **bold** & spacing)",
         style=discord.TextStyle.paragraph,
-        placeholder="type what you want inside the panel...",
-        default="@  303",
+        placeholder="write your message here...\n\nuse **bold**, # headers, or blank lines for spacing",
+        default="**@  303**\n\nneed assistance, partnerships, or reporting?\nclick below to open a ticket.",
         required=True,
+        max_length=2000,
     )
     emoji_input = discord.ui.TextInput(
         label="button emoji (any server or unicode)",
@@ -893,18 +894,20 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
         max_length=100,
     )
     button_label_input = discord.ui.TextInput(
-        label="button text (optional, leave empty for icon)",
-        placeholder="e.g. open ticket",
+        label="button text (leave empty for icon only)",
+        placeholder="e.g. open ticket (or leave blank)",
         required=False,
         max_length=80,
     )
     title_input = discord.ui.TextInput(
-        label="title (optional, leave empty for none)",
+        label="header / title (optional, leave blank)",
+        placeholder="optional embed title header",
         required=False,
         max_length=100,
     )
     footer_input = discord.ui.TextInput(
-        label="footer (optional, leave empty for none)",
+        label="footer text (optional, leave blank)",
+        placeholder="leave blank for no footer",
         required=False,
         max_length=100,
     )
@@ -921,9 +924,12 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
         panel_title = self.title_input.value.strip() or None
         panel_footer = self.footer_input.value.strip() or None
 
+        # Clean outer newlines while preserving all internal spacing and blank lines
+        description = self.panel_text.value.strip("\r\n")
+
         embed = create_clean_embed(
             title=panel_title,
-            description=self.panel_text.value.strip(),
+            description=description,
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=panel_footer,
@@ -939,7 +945,7 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
 
         await interaction.channel.send(embed=embed, view=view)
         await interaction.response.send_message(
-            "╰ *custom ticket panel deployed.*", ephemeral=True
+            "╰ *ticket panel deployed.*", ephemeral=True
         )
 
 
@@ -1008,66 +1014,14 @@ class TicketsCog(commands.Cog, name="Tickets"):
 
     @ticket_group.command(
         name="panel",
-        description="drop a minimalist custom ticket panel with any text and any emoji.",
+        description="open the modal popup window to design your ticket panel with bold text & spacing.",
     )
-    @app_commands.choices(
-        button_style=[
-            app_commands.Choice(name="secondary (dark grey / minimal)", value="secondary"),
-            app_commands.Choice(name="primary (blurple)", value="primary"),
-            app_commands.Choice(name="success (green)", value="success"),
-            app_commands.Choice(name="danger (red)", value="danger"),
-        ]
-    )
-    async def ticket_panel(
-        self,
-        interaction: discord.Interaction,
-        text: str = "@  303",
-        emoji: str = "🦋",
-        button_label: str | None = None,
-        button_style: str = "secondary",
-        title: str | None = None,
-        footer: str | None = None,
-        as_embed: bool = True,
-    ):
-        assert isinstance(interaction.channel, discord.TextChannel)
-
-        style_map = {
-            "secondary": discord.ButtonStyle.secondary,
-            "primary": discord.ButtonStyle.primary,
-            "success": discord.ButtonStyle.success,
-            "danger": discord.ButtonStyle.danger,
-        }
-        b_style = style_map.get(button_style, discord.ButtonStyle.secondary)
-        resolved_emoji = resolve_emoji(self.bot, emoji) or "🦋"
-
-        view = TicketButtonView(
-            self.bot,
-            emoji=resolved_emoji,
-            label=button_label,
-            style=b_style,
-        )
-
-        if as_embed:
-            embed = create_clean_embed(
-                title=title,
-                description=text,
-                color=COLOR_OBSIDIAN,
-                tag=None,
-                footer=footer,
-                guild=interaction.guild,
-            )
-            await interaction.channel.send(embed=embed, view=view)
-        else:
-            msg_content = f"**{title}**\n\n{text}" if title else text
-            await interaction.channel.send(content=msg_content, view=view)
-
-        await interaction.response.send_message(
-            "╰ *ticket panel deployed.*", ephemeral=True
-        )
+    async def ticket_panel(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(CustomPanelModal(self.bot))
 
     @ticket_group.command(
         name="builder",
-        description="open an interactive popup window to write & preview your custom ticket panel.",
+        description="open the modal popup window to design your ticket panel with bold text & spacing.",
     )
     async def ticket_builder(self, interaction: discord.Interaction):
         await interaction.response.send_modal(CustomPanelModal(self.bot))
