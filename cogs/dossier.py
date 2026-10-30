@@ -8,7 +8,6 @@ from ui_theme import (
     COLOR_MINT,
     COLOR_OBSIDIAN,
     kyomi_embed,
-    progress_bar,
 )
 
 
@@ -286,7 +285,6 @@ class DossierCog(commands.Cog, name="Dossier"):
         cases = await self.bot.db.get_user_mod_cases(guild.id, member.id)
 
         score, status_tag = calculate_trust_score(member, len(warnings), len(cases))
-        bar = progress_bar(score, 100, length=10)
 
         embed = kyomi_embed(
             color=COLOR_OBSIDIAN,
@@ -311,7 +309,7 @@ class DossierCog(commands.Cog, name="Dossier"):
 
             embed.description = (
                 f"{member.mention}  ·  `{member.id}`\n"
-                f"╰ **trust:** `{bar}` `{score}%` *({status_tag})*\n"
+                f"╰ **standing:** `{status_tag}`  ·  `{score}% trust`\n"
                 f"╰ **record:** `{len(warnings)}` warns  ·  `{len(notes)}` notes  ·  `{len(cases)}` logs\n\n"
                 f"**dates**\n"
                 f"╰ **created:** {discord.utils.format_dt(member.created_at, 'R')}\n"
