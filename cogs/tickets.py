@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import io
+import re
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -12,6 +13,42 @@ from ui_theme import (
     kyomi_embed,
     progress_bar,
 )
+
+
+def resolve_emoji(
+    bot: commands.Bot, emoji_input: str | None
+) -> str | discord.PartialEmoji | None:
+    """Resolves standard unicode emojis or custom emojis from ANY server."""
+    if not emoji_input:
+        return None
+    raw = emoji_input.strip()
+    if not raw:
+        return None
+
+    # Discord custom emoji syntax: <:name:id> or <a:name:id>
+    custom_match = re.match(r"^<(a)?:([a-zA-Z0-9_]+):([0-9]+)>$", raw)
+    if custom_match:
+        animated = bool(custom_match.group(1))
+        name = custom_match.group(2)
+        emoji_id = int(custom_match.group(3))
+        return discord.PartialEmoji(name=name, id=emoji_id, animated=animated)
+
+    # Numeric Discord emoji ID
+    if raw.isdigit():
+        custom = bot.get_emoji(int(raw))
+        if custom:
+            return custom
+        return discord.PartialEmoji(name="custom_emoji", id=int(raw))
+
+    # Match by name in any joined server
+    clean_name = raw.strip(":")
+    for guild in bot.guilds:
+        found = discord.utils.get(guild.emojis, name=clean_name)
+        if found:
+            return found
+
+    # Standard Unicode emoji string (e.g. 🦋)
+    return raw
 
 
 async def open_ticket_channel(
@@ -116,7 +153,8 @@ async def open_ticket_channel(
             f"╰ **user:** {interaction.user.mention} (`{interaction.user.id}`)"
         ),
         color=COLOR_OBSIDIAN,
-        tag="303  •  support",
+        tag=None,
+        footer=None,
         guild=interaction.guild,
     )
 
@@ -219,7 +257,8 @@ class TicketControlView(discord.ui.View):
         notice = kyomi_embed(
             description=f"{interaction.user.mention} *is handling this ticket now.*",
             color=COLOR_OBSIDIAN,
-            tag="303  •  claimed",
+            tag=None,
+            footer=None,
         )
         await interaction.channel.send(embed=notice)
 
@@ -259,7 +298,8 @@ class TicketControlView(discord.ui.View):
         alert = kyomi_embed(
             description=f"*marked as **urgent** by {interaction.user.mention}*",
             color=COLOR_CRIMSON,
-            tag="303  •  priority",
+            tag=None,
+            footer=None,
         )
         await interaction.channel.send(embed=alert)
 
@@ -295,7 +335,8 @@ class TicketControlView(discord.ui.View):
         countdown_embed = kyomi_embed(
             description=f"╰ *saving transcript & closing in **`5s`**  `{bar_init}`*",
             color=COLOR_CRIMSON,
-            tag="303  •  closing",
+            tag=None,
+            footer=None,
         )
         status_msg = await interaction.channel.send(embed=countdown_embed)
 
@@ -343,7 +384,8 @@ class TicketControlView(discord.ui.View):
                         f"╰ **closed by:** {interaction.user.mention}"
                     ),
                     color=COLOR_OBSIDIAN,
-                    tag="303  •  transcripts",
+                    tag=None,
+                    footer=None,
                     guild=interaction.guild,
                 )
                 file_obj = discord.File(
@@ -381,11 +423,12 @@ class TicketButton(discord.ui.Button):
     def __init__(
         self,
         bot: commands.Bot,
-        emoji: str | None = "🦋",
+        emoji: str | discord.PartialEmoji | None = "🦋",
         label: str | None = None,
+        style: discord.ButtonStyle = discord.ButtonStyle.secondary,
     ):
         super().__init__(
-            style=discord.ButtonStyle.secondary,
+            style=style,
             emoji=emoji or "🦋",
             label=label,
             custom_id="ticket:btn_open",
@@ -399,16 +442,17 @@ class TicketButton(discord.ui.Button):
 
 
 class TicketButtonView(discord.ui.View):
-    """Persistent button view for 1-click ticket panels (e.g. 🦋)."""
+    """Persistent button view for custom 1-click ticket panels."""
     def __init__(
         self,
         bot: commands.Bot,
-        emoji: str | None = "🦋",
+        emoji: str | discord.PartialEmoji | None = "🦋",
         label: str | None = None,
+        style: discord.ButtonStyle = discord.ButtonStyle.secondary,
     ):
         super().__init__(timeout=None)
         self.bot = bot
-        self.add_item(TicketButton(bot, emoji=emoji, label=label))
+        self.add_item(TicketButton(bot, emoji=emoji, label=label, style=style))
 
 
 class TicketCategorySelect(discord.ui.Select):
@@ -457,8 +501,74 @@ class TicketPanelView(discord.ui.View):
         self.add_item(TicketCategorySelect(bot))
 
 
+class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
+    panel_text = discord.ui.TextInput(
+        label="panel content / text",
+        style=discord.TextStyle.paragraph,
+        placeholder="type what you want inside the panel...",
+        default="@  303",
+        required=True,
+    )
+    emoji_input = discord.ui.TextInput(
+        label="button emoji (any server or unicode)",
+        placeholder="e.g. 🦋 or paste custom <:name:id>",
+        default="🦋",
+        required=False,
+        max_length=100,
+    )
+    button_label_input = discord.ui.TextInput(
+        label="button text (optional, leave empty for icon)",
+        placeholder="e.g. open ticket",
+        required=False,
+        max_length=80,
+    )
+    title_input = discord.ui.TextInput(
+        label="title (optional, leave empty for none)",
+        required=False,
+        max_length=100,
+    )
+    footer_input = discord.ui.TextInput(
+        label="footer (optional, leave empty for none)",
+        required=False,
+        max_length=100,
+    )
+
+    def __init__(self, bot: commands.Bot):
+        super().__init__()
+        self.bot = bot
+
+    async def on_submit(self, interaction: discord.Interaction):
+        assert isinstance(interaction.channel, discord.TextChannel)
+
+        resolved_emoji = resolve_emoji(self.bot, self.emoji_input.value) or "🦋"
+        btn_label = self.button_label_input.value.strip() or None
+        panel_title = self.title_input.value.strip() or None
+        panel_footer = self.footer_input.value.strip() or None
+
+        embed = kyomi_embed(
+            title=panel_title,
+            description=self.panel_text.value.strip(),
+            color=COLOR_OBSIDIAN,
+            tag=None,
+            footer=panel_footer,
+            guild=interaction.guild,
+        )
+
+        view = TicketButtonView(
+            self.bot,
+            emoji=resolved_emoji,
+            label=btn_label,
+            style=discord.ButtonStyle.secondary,
+        )
+
+        await interaction.channel.send(embed=embed, view=view)
+        await interaction.response.send_message(
+            "╰ *custom ticket panel deployed.*", ephemeral=True
+        )
+
+
 class TicketsCog(commands.Cog, name="Tickets"):
-    """Dark-aesthetic ticket panel, custom button panels, and live transcripts."""
+    """Minimalist dark ticket panel, custom emojis from any server, and clean transcripts."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -507,60 +617,77 @@ class TicketsCog(commands.Cog, name="Tickets"):
                 "*use `/ticket panel` to drop your custom button or dropdown panel.*"
             ),
             color=COLOR_OBSIDIAN,
-            tag="303  •  setup",
+            tag=None,
+            footer=None,
             guild=interaction.guild,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @ticket_group.command(
         name="panel",
-        description="drop a custom ticket panel (supports single-button icon like 🦋 or dropdown).",
+        description="drop a minimalist custom ticket panel with any text and any emoji.",
     )
     @app_commands.choices(
-        mode=[
-            app_commands.Choice(name="button (sleek single button like 🦋)", value="button"),
-            app_commands.Choice(name="dropdown (multi-topic category menu)", value="dropdown"),
+        button_style=[
+            app_commands.Choice(name="secondary (dark grey / minimal)", value="secondary"),
+            app_commands.Choice(name="primary (blurple)", value="primary"),
+            app_commands.Choice(name="success (green)", value="success"),
+            app_commands.Choice(name="danger (red)", value="danger"),
         ]
     )
     async def ticket_panel(
         self,
         interaction: discord.Interaction,
-        mode: str = "button",
-        title: str = "@  303",
-        description: str | None = None,
-        button_emoji: str = "🦋",
+        text: str = "@  303",
+        emoji: str = "🦋",
         button_label: str | None = None,
-        footer: str = "Powered by tickets.bot",
+        button_style: str = "secondary",
+        title: str | None = None,
+        footer: str | None = None,
+        as_embed: bool = True,
     ):
         assert isinstance(interaction.channel, discord.TextChannel)
 
-        embed = kyomi_embed(
-            title=title,
-            description=description,
-            color=COLOR_OBSIDIAN,
-            tag=None,
-            footer=footer,
-            guild=interaction.guild,
+        style_map = {
+            "secondary": discord.ButtonStyle.secondary,
+            "primary": discord.ButtonStyle.primary,
+            "success": discord.ButtonStyle.success,
+            "danger": discord.ButtonStyle.danger,
+        }
+        b_style = style_map.get(button_style, discord.ButtonStyle.secondary)
+        resolved_emoji = resolve_emoji(self.bot, emoji) or "🦋"
+
+        view = TicketButtonView(
+            self.bot,
+            emoji=resolved_emoji,
+            label=button_label,
+            style=b_style,
         )
 
-        if mode == "button":
-            view = TicketButtonView(self.bot, emoji=button_emoji, label=button_label)
+        if as_embed:
+            embed = kyomi_embed(
+                title=title,
+                description=text,
+                color=COLOR_OBSIDIAN,
+                tag=None,
+                footer=footer,
+                guild=interaction.guild,
+            )
+            await interaction.channel.send(embed=embed, view=view)
         else:
-            if not description:
-                embed.description = (
-                    "need to talk to staff, report someone, or appeal a mute?\n"
-                    "pick a topic below to open a private room.\n\n"
-                    "╰ `✦ general` — questions & server help\n"
-                    "╰ `◈ report` — privately report a member\n"
-                    "╰ `✧ appeal` — appeal a warn or mute\n"
-                    "╰ `◇ other` — partnerships & owners"
-                )
-            view = TicketPanelView(self.bot)
+            msg_content = f"**{title}**\n\n{text}" if title else text
+            await interaction.channel.send(content=msg_content, view=view)
 
-        await interaction.channel.send(embed=embed, view=view)
         await interaction.response.send_message(
-            f"╰ *ticket panel deployed (`{mode}`).*", ephemeral=True
+            "╰ *ticket panel deployed.*", ephemeral=True
         )
+
+    @ticket_group.command(
+        name="builder",
+        description="open an interactive popup window to write & preview your custom ticket panel.",
+    )
+    async def ticket_builder(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(CustomPanelModal(self.bot))
 
     @ticket_group.command(
         name="add",

@@ -20,19 +20,20 @@ def kyomi_embed(
     title: str | None = None,
     description: str | None = None,
     color: discord.Color = COLOR_OBSIDIAN,
-    tag: str | None = "303  •  kyomi",
-    footer: str | None = "303 kyomi",
+    tag: str | None = None,
+    footer: str | None = None,
     guild: discord.Guild | None = None,
+    with_timestamp: bool = False,
 ) -> discord.Embed:
-    """Creates a minimal dark-aesthetic embed."""
+    """Creates a minimal dark-aesthetic embed with zero forced watermarks."""
     embed = discord.Embed(
         title=title,
         description=description,
         color=color,
-        timestamp=datetime.datetime.now(datetime.timezone.utc),
+        timestamp=datetime.datetime.now(datetime.timezone.utc) if with_timestamp else None,
     )
-    icon_url = guild.icon.url if (guild and guild.icon) else None
     if tag:
+        icon_url = guild.icon.url if (guild and guild.icon) else None
         embed.set_author(name=tag, icon_url=icon_url)
     if footer:
         embed.set_footer(text=footer)
