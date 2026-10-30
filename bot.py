@@ -28,6 +28,10 @@ COGS = [
 ]
 
 
+last_bot_error: str = "none"
+retry_count: int = 0
+
+
 class ModBot(commands.Bot):
     def __init__(self, db_path: str):
         intents = discord.Intents.default()
@@ -93,6 +97,7 @@ async def main() -> None:
 
     # Connect to Discord with proper client reset if shared cloud IP is rate-limited (429)
     retry_delay = 15
+    global last_bot_error, retry_count
     while True:
         bot = ModBot(db_path=db_path)
         bot.db = db
@@ -102,6 +107,8 @@ async def main() -> None:
                 await bot.start(token)
             break
         except discord.HTTPException as exc:
+            retry_count += 1
+            last_bot_error = f"HTTPException {exc.status}: {exc.text or str(exc)}"
             if exc.status == 429:
                 logger.warning(
                     "Discord shared-IP rate limit (429) encountered. Retrying in %ds while keeping Web Dashboard online...",
@@ -113,6 +120,8 @@ async def main() -> None:
                 logger.error("Discord HTTP error: %s", exc)
                 await asyncio.sleep(30)
         except Exception as exc:
+            retry_count += 1
+            last_bot_error = f"{type(exc).__name__}: {exc}"
             logger.error("Unexpected connection error: %s — retrying in 20s", exc)
             await asyncio.sleep(20)
 
