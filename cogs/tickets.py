@@ -129,8 +129,9 @@ async def open_ticket_channel(
     if existing:
         ch = interaction.guild.get_channel(existing["channel_id"])
         if ch:
+            status_str = "archived" if existing.get("status") == "archived" else "active"
             await interaction.followup.send(
-                f"*you already have an open ticket: {ch.mention}*",
+                f"*you already have an {status_str} ticket: {ch.mention}. you cannot open a new ticket until staff deletes or closes your existing one.*",
                 ephemeral=True,
             )
             return None
@@ -383,12 +384,33 @@ class TicketArchivedView(discord.ui.View):
     ):
         assert interaction.guild is not None
         assert isinstance(interaction.channel, discord.TextChannel)
+        assert isinstance(interaction.user, discord.Member)
+
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        support_role_id = settings.get("ticket_support_role_id")
+        is_staff = (
+            interaction.user.guild_permissions.manage_channels
+            or interaction.user.guild_permissions.moderate_members
+            or (
+                support_role_id
+                and any(r.id == support_role_id for r in interaction.user.roles)
+            )
+        )
+        if not is_staff:
+            return await interaction.response.send_message(
+                "*only staff can reopen archived tickets.*", ephemeral=True
+            )
 
         ticket_data = await self.bot.db.get_ticket_by_channel(interaction.channel.id)
         if not ticket_data:
             return await interaction.response.send_message(
                 "*ticket record not found.*", ephemeral=True
             )
+
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        await interaction.response.edit_message(view=self)
 
         owner = interaction.guild.get_member(ticket_data["owner_id"])
         if owner:
@@ -401,7 +423,6 @@ class TicketArchivedView(discord.ui.View):
                 embed_links=True,
             )
 
-        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
         active_cat_id = settings.get("ticket_category_id")
         active_category = (
             interaction.guild.get_channel(active_cat_id) if active_cat_id else None
@@ -427,7 +448,7 @@ class TicketArchivedView(discord.ui.View):
             footer=None,
         )
         await interaction.channel.send(embed=embed, view=TicketControlView(self.bot))
-        await interaction.response.send_message("*ticket restored to active.*", ephemeral=True)
+        await interaction.followup.send("*ticket restored to active.*", ephemeral=True)
 
     @discord.ui.button(
         label="× delete",
@@ -439,6 +460,23 @@ class TicketArchivedView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         assert isinstance(interaction.channel, discord.TextChannel)
+        assert isinstance(interaction.user, discord.Member)
+
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        support_role_id = settings.get("ticket_support_role_id")
+        is_staff = (
+            interaction.user.guild_permissions.manage_channels
+            or interaction.user.guild_permissions.moderate_members
+            or (
+                support_role_id
+                and any(r.id == support_role_id for r in interaction.user.roles)
+            )
+        )
+        if not is_staff:
+            return await interaction.response.send_message(
+                "*only staff can delete archived tickets.*", ephemeral=True
+            )
+
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 item.disabled = True

@@ -231,13 +231,19 @@ class Database:
     async def get_open_ticket_by_user(
         self, guild_id: int, owner_id: int
     ) -> dict | None:
+        """Finds any open or archived ticket belonging to user (prevents opening duplicates)."""
         assert self.conn is not None
         async with self.conn.execute(
-            "SELECT * FROM tickets WHERE guild_id = ? AND owner_id = ? AND status = 'open'",
+            "SELECT * FROM tickets WHERE guild_id = ? AND owner_id = ? AND status IN ('open', 'archived')",
             (guild_id, owner_id),
         ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
+
+    async def get_active_ticket_by_user(
+        self, guild_id: int, owner_id: int
+    ) -> dict | None:
+        return await self.get_open_ticket_by_user(guild_id, owner_id)
 
     async def get_ticket_by_channel(self, channel_id: int) -> dict | None:
         assert self.conn is not None
