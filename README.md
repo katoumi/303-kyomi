@@ -1,101 +1,94 @@
-# 🛡️ Discord Moderation & Automation Bot
+# 303  •  kyomi
 
-A modular, asynchronous Discord moderation and server automation bot built with **`discord.py` v2** and **`aiosqlite`**.
-
-## ✨ Features
-
-### 1. Slash Commands (`cogs/moderation.py`)
-- `/kick <member> [reason]` — Kick a member with hierarchy validation and DM notification.
-- `/ban <member> [reason] [delete_days]` — Ban a member and purge up to 7 days of their messages.
-- `/unban <user_id> [reason]` — Unban a user by their numeric Discord ID.
-- `/timeout <member> <minutes> [reason]` — Temporarily mute a member using Discord's native timeout.
-- `/untimeout <member> [reason]` — Remove an active timeout from a member.
-- `/purge <amount> [member]` — Bulk delete up to 100 messages (optionally filtered by user).
-- `/warn <member> <reason>` — Issue a persistent warning. Automatically times out or bans when warning thresholds are reached!
-- `/warnings <member>` — View a member's warning history.
-- `/delwarn <warning_id>` & `/clearwarns <member>` — Remove a single warning or clear all warnings for a member.
-- `/slowmode <seconds>` — Set or disable channel slowmode.
-- `/lock [reason]` & `/unlock` — Quickly lock or unlock the current text channel during raids.
-
-### 2. Auto-Moderation (`cogs/automod.py`)
-- **Anti-Spam Rate Limiter**: Automatically deletes messages and applies a 5-minute timeout when a user exceeds the message rate threshold (default: 5 messages within 5 seconds).
-- **Bad Word Filter**: Blocks messages containing server-configured words (`/automod addword`, `/automod removeword`).
-- **Invite & Link Blocker**: Blocks unauthorized Discord server invites (`discord.gg/...`) and optionally all HTTP/HTTPS links.
-- **Mass-Mention Protection**: Automatically deletes messages and times out users who exceed the maximum mention limit in a single message.
-- **Control Panel**: View and toggle rules anytime with `/automod status` and `/automod toggle`.
-
-### 3. Audit & Mod Logging (`cogs/logging_cog.py`)
-- **Moderation Case Logs (`/config modlog`)**: Logs every `/kick`, `/ban`, `/timeout`, `/warn`, `/purge`, and AutoMod intervention with sequential Case IDs.
-- **Server Audit Logs (`/config auditlog`)**:
-  - 🗑️ Deleted messages (including attachment filenames)
-  - ✏️ Edited messages (Before & After diff + jump link)
-  - 📥 Member joins (with **New Account Alert** if the account is `< 7` days old)
-  - 📤 Member leaves (with their previous roles)
-- **Escalation Thresholds (`/config thresholds`)**: Configure how many warnings trigger an automatic 1-hour timeout (default: `3`) or permanent ban (default: `5`).
-
-### 4. Right-Click Member Dossier & Trust Score (`cogs/dossier.py`)
-- **Context Menu (`Right-Click User -> Apps -> 📋 Inspect Member Dossier` or `/dossier <member>`)**:
-  - Calculates a live **`0–100` Trust Score** based on account age, server tenure, roles, warnings, and moderation history.
-  - Displays active warnings, recent mod cases, and confidential **Staff Notes**.
-  - Includes interactive **1-Click Action Buttons**: `[⚠️ Quick Warn]`, `[⏳ Timeout 15m]`, `[📝 Add Staff Note]`, and `[🧹 Clear Warnings]`.
-- **Context Menu (`Right-Click Message -> Apps -> 🚨 Quick Delete & Warn Author`)**:
-  - Instantly deletes a rule-breaking message, logs its contents to the mod-log channel, and issues a formal warning to the author in a single click.
-
-### 5. Interactive Dropdown Ticket System (`cogs/tickets.py`)
-- `/ticket setup <category> <log_channel> [support_role]` — Set where private ticket channels are created and where transcripts are archived.
-- `/ticket panel` — Posts a persistent dropdown menu (*General Support*, *Report a Member*, *Moderation Appeal*, *Partnership Inquiry*) that continues working even after bot restarts.
-- **Persistent Claim & Transcript Controls**: Inside each ticket, staff can click **`[🙋‍♂️ Claim Ticket]`** or **`[🔒 Close & Save Transcript]`**, which compiles the full conversation into a downloadable `.md` transcript file and posts it to your archive channel.
-
-### 6. Smart Bump Tracker, Leaderboard & Auto-Promo (`cogs/bumping.py`)
-- **Auto-Detection for Disboard (`/bump`)**: Automatically detects when any member successfully bumps the server via Disboard, thanks them, increments their all-time bump counter, and schedules a persistent **2-hour reminder**.
-- `/bump setup <channel> [ping_role]` — Set the bump channel and optional `@Bumpers` role to ping the exact moment the 2-hour cooldown expires.
-- `/bump leaderboard` — Displays the server's top all-time bumpers and a live countdown to the next available bump.
-- `/bump autopromo [channel] [interval_minutes] [message]` — Hands-free recurring scheduler that posts your server's custom promo/bump embed every `N` minutes.
+internal documentation and operator reference for **303 kyomi**.
+for private use only.
 
 ---
 
-## 🚀 Setup Instructions
+## ✦ architecture
 
-### Step 1: Create Your Discord Bot Application
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and click **New Application**.
-2. Navigate to the **Bot** tab on the left sidebar:
-   - Click **Reset Token** to generate your `DISCORD_TOKEN`.
-   - Scroll down to **Privileged Gateway Intents** and enable:
-     - ✅ **Server Members Intent**
-     - ✅ **Message Content Intent**
-3. Navigate to **OAuth2 -> URL Generator**:
-   - Under **Scopes**, check `bot` and `applications.commands`.
-   - Under **Bot Permissions**, check:
-     - `Kick Members`, `Ban Members`, `Moderate Members` (Timeouts)
-     - `Manage Channels`, `Manage Messages`, `Read Message History`
-     - `Send Messages`, `Embed Links`, `View Channels`
-   - Copy the generated URL at the bottom and open it in your browser to invite the bot to your server.
+```text
+303-kyomi/
+├── bot.py              # entry point, gateway intents & cog loader
+├── database.py         # async sqlite engine (data/moderation.db)
+├── dashboard.py        # embedded web panel & /health endpoint (port 3030)
+├── ui_theme.py         # monochrome dark palette & embed builders
+├── cogs/
+│   ├── moderation.py   # /kick, /ban, /timeout, /warn, /purge, /lock
+│   ├── automod.py      # borderless hud, spam/link/word filter, ghost-ping & scam guard
+│   ├── antiraid.py     # join-velocity shield, account age gate & panic lockdown
+│   ├── dossier.py      # right-click user inspector, trust score & staff notes
+│   ├── tickets.py      # private support channels & live-countdown transcripts
+│   ├── bumping.py      # disboard 2h tracker, leaderboard & scheduled autopromo
+│   ├── logging_cog.py  # ansi message edit/delete diffs & entry/exit logs
+│   └── help_cog.py     # floating modal manual (/help)
+├── Dockerfile          # container spec for 24/7 cloud deployment
+└── render.yaml         # render deployment manifest
+```
 
-### Step 2: Configure Environment & Install Dependencies
+---
+
+## ◈ command reference
+
+### moderation
+- `/warn <user> <reason>` — log a strike (auto-mutes or auto-bans at threshold)
+- `/warnings <user>` — view active warnings for a member
+- `/delwarn <id>`  ·  `/clearwarns <user>` — remove one or all warnings
+- `/timeout <user> <minutes> [reason]`  ·  `/untimeout <user>` — mute or unmute
+- `/kick <user> [reason]` — kick a member from the server
+- `/ban <user> [reason] [delete_days]`  ·  `/unban <user_id>` — ban or unban
+- `/purge <1-100> [user]` — bulk delete messages in the current channel
+- `/slowmode <seconds>` — set channel slowmode (`0` to disable)
+- `/lock [reason]`  ·  `/unlock` — lock or unlock the current channel for `@everyone`
+
+### automod & anti-raid (borderless hud)
+- `/automod panel` *(or `/automod status`)* — open floating switches & dropdowns (automod, anti-spam, invites, links, ghost-ping, scam-guard, blocked words)
+- `/automod addword <word>`  ·  `/automod removeword <word>` — edit word filter
+- `/antiraid panel` — open anti-raid switches, join-velocity presets, and account age gate
+- `/antiraid lockdown` — toggle emergency server lockdown (locks public channels & pauses invites for 2h)
+
+### dossier & context menus
+- `/dossier <user>` — inspect trust bar (`0–100%`), account dates, warnings, mod logs, and staff notes
+- `right-click user -> apps -> inspect user` — open dossier from any user profile
+- `right-click message -> apps -> delete & warn` — delete message and log a warning in one click
+
+### tickets & transcripts
+- `/ticket setup <category> <log_channel> [support_role]` — configure ticket category and transcript archive channel
+- `/ticket panel [title] [description]` — post the persistent ticket dropdown menu
+
+### bumping & telemetry
+- `/bump setup <channel> [ping_role]` — bind channel and role for 2-hour disboard reminders
+- `/bump leaderboard` — view top server bumpers and cooldown progress bar
+- `/bump autopromo [channel] [interval_minutes] [message]` — schedule recurring promo messages
+- `/bump simulate` — test the bump reminder with a 60-second timer
+- `/config modlog <channel>`  ·  `/config auditlog <channel>` — set log channels
+- `/config thresholds <mute_warns> <ban_warns>` — set warning escalation counts
+- `/help` — open the floating manual modal
+
+---
+
+## ✧ local operation
+
 ```powershell
-# 1. Navigate to the project folder
-cd C:\Users\Mhiko\.gemini\antigravity\scratch\discord-mod-bot
-
-# 2. Create and activate a virtual environment
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-# 3. Install dependencies
+# 1. create virtual environment & install dependencies
+py -m venv .venv
 .\.venv\Scripts\pip install -r requirements.txt
 
-# 4. Create your .env file and paste your bot token
-Copy-Item .env.example .env
-```
-Edit `.env` and replace `your_discord_bot_token_here` with your Discord Bot Token.
+# 2. configure environment variables in .env
+# DISCORD_TOKEN=...
+# DASHBOARD_PASSWORD=...
 
-### Step 3: Run the Bot
-```powershell
-.\.venv\Scripts\python bot.py
+# 3. run bot & local web panel (http://localhost:3030)
+.\.venv\Scripts\python.exe bot.py
 ```
 
-### Step 4: Initial Server Configuration
-Once your bot is online in your server, run these slash commands:
-1. `/config modlog #your-mod-log-channel` — Set where mod cases and AutoMod actions are posted.
-2. `/config auditlog #your-audit-log-channel` — Set where message edits/deletes and joins/leaves are posted.
-3. `/automod status` — Inspect your Auto-Moderation settings.
-4. `/automod addword <word>` — Add any custom words you want filtered.
+---
+
+## ⊘ 24/7 deployment notes
+
+1. deploy repository as a web service on **render** or **koyeb** using `Dockerfile`.
+2. set environment variables:
+   - `DISCORD_TOKEN`
+   - `DASHBOARD_PASSWORD`
+   - `PORT` (`3030`)
+3. point an uptime monitor (e.g. uptimerobot) to `https://<your-domain>/health` on a 5-minute interval to keep the instance active 24/7.
