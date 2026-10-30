@@ -224,7 +224,9 @@ async def open_ticket_channel(
         tag=None,
         footer=None,
         guild=interaction.guild,
+        with_timestamp=False,
     )
+    embed.timestamp = None
 
     ping_text = (
         f"{interaction.user.mention} {support_role.mention}"
@@ -510,7 +512,9 @@ class TicketArchivedView(discord.ui.View):
             color=COLOR_MINT,
             tag=None,
             footer=None,
+            with_timestamp=False,
         )
+        embed.timestamp = None
         await interaction.channel.send(embed=embed, view=TicketControlView(self.bot))
         await interaction.followup.send("*ticket restored to active.*", ephemeral=True)
 
@@ -592,7 +596,9 @@ class TicketControlView(discord.ui.View):
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
+            with_timestamp=False,
         )
+        notice.timestamp = None
         await interaction.channel.send(embed=notice)
 
     @discord.ui.button(
@@ -633,7 +639,9 @@ class TicketControlView(discord.ui.View):
             color=COLOR_CRIMSON,
             tag=None,
             footer=None,
+            with_timestamp=False,
         )
+        alert.timestamp = None
         await interaction.channel.send(embed=alert)
 
     @discord.ui.button(
@@ -715,7 +723,9 @@ class TicketControlView(discord.ui.View):
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
+            with_timestamp=False,
         )
+        arch_embed.timestamp = None
         await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
 
     @discord.ui.button(
@@ -899,7 +909,9 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
             tag=None,
             footer=panel_footer,
             guild=interaction.guild,
+            with_timestamp=False,
         )
+        embed.timestamp = None
 
         view = TicketButtonView(
             self.bot,
@@ -1026,7 +1038,9 @@ class TicketsCog(commands.Cog, name="Tickets"):
                 tag=None,
                 footer=footer,
                 guild=interaction.guild,
+                with_timestamp=False,
             )
+            embed.timestamp = None
             await interaction.channel.send(embed=embed, view=view)
         else:
             msg_content = f"**{title}**\n\n{text}" if title else text
@@ -1097,7 +1111,9 @@ class TicketsCog(commands.Cog, name="Tickets"):
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
+            with_timestamp=False,
         )
+        arch_embed.timestamp = None
         await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
         await interaction.response.send_message("╰ *ticket archived.*", ephemeral=True)
 
