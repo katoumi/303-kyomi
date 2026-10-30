@@ -13,6 +13,10 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("bot.log", mode="a", encoding="utf-8")
+    ]
 )
 logger = logging.getLogger("mod-bot")
 
@@ -103,7 +107,9 @@ async def main() -> None:
         bot.db = db
         dashboard.bot = bot
         try:
+            logger.info("Attempting discord login with token length %d...", len(token))
             async with bot:
+                logger.info("Bot setup_hook complete. Starting discord gateway connection...")
                 await bot.start(token)
             break
         except discord.HTTPException as exc:

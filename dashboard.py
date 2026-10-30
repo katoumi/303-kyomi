@@ -620,7 +620,17 @@ class WebDashboard:
     async def handle_index(self, request: web.Request) -> web.Response:
         return web.Response(text=DASHBOARD_HTML, content_type="text/html")
 
-    async def handle_health(self, request: web.Request) -> web.Response:
+    async def handle_logs(self, request: web.Request) -> web.Response:
+        import bot as bot_module
+        log_file = "bot.log"
+        content = ""
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                    content = f.read()[-6000:]
+            except Exception as e:
+                content = str(e)
+        return web.Response(text=content or "no logs yet", content_type="text/plain")
         import bot as bot_module
         return web.json_response(
             {
@@ -697,6 +707,7 @@ class WebDashboard:
         app = web.Application()
         app.router.add_get("/", self.handle_index)
         app.router.add_get("/health", self.handle_health)
+        app.router.add_get("/logs", self.handle_logs)
         app.router.add_get("/api/guilds", self.handle_guilds)
         app.router.add_get("/api/guild/{guild_id}", self.handle_guild_data)
         app.router.add_post(
