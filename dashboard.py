@@ -620,6 +620,20 @@ class WebDashboard:
     async def handle_index(self, request: web.Request) -> web.Response:
         return web.Response(text=DASHBOARD_HTML, content_type="text/html")
 
+    async def handle_health(self, request: web.Request) -> web.Response:
+        import bot as bot_module
+        return web.json_response(
+            {
+                "status": "online",
+                "bot": str(self.bot.user) if self.bot.user else "starting",
+                "guilds": len(self.bot.guilds),
+                "has_token": bool(os.getenv("DISCORD_TOKEN")),
+                "token_len": len(os.getenv("DISCORD_TOKEN") or ""),
+                "last_error": getattr(bot_module, "last_bot_error", "none"),
+                "retries": getattr(bot_module, "retry_count", 0),
+            }
+        )
+
     async def handle_logs(self, request: web.Request) -> web.Response:
         import bot as bot_module
         log_file = "bot.log"
