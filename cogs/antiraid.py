@@ -58,7 +58,7 @@ class RaidThresholdSelect(discord.ui.Select):
             interaction.guild.id, "antiraid_interval_sec", int(sec_s)
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
 
 
 class AccountAgeGateSelect(discord.ui.Select):
@@ -116,7 +116,7 @@ class AccountAgeGateSelect(discord.ui.Select):
             interaction.guild.id, "antiraid_min_account_days", days
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
 
 
 class RaidActionSelect(discord.ui.Select):
@@ -161,7 +161,7 @@ class RaidActionSelect(discord.ui.Select):
             interaction.guild.id, "antiraid_action", act
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
 
 
 class AntiRaidFloatingHUD(discord.ui.View):
@@ -212,7 +212,7 @@ class AntiRaidFloatingHUD(discord.ui.View):
             interaction.guild.id, "antiraid_enabled", 0 if cur else 1
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
 
     @discord.ui.button(label="panic lockdown", row=0)
     async def btn_lockdown(
@@ -236,7 +236,7 @@ class AntiRaidFloatingHUD(discord.ui.View):
             note = f"*locked `{count}` public channels & paused server invites.*"
 
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.edit_original_response(content=None, embed=None, view=view)
+        await interaction.edit_original_response(content="`303  •  anti-raid`", embed=None, view=view)
         await interaction.followup.send(note, ephemeral=True)
 
 
@@ -515,8 +515,9 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
     )
     async def antiraid_panel(self, interaction: discord.Interaction):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         view = await self.build_hud_view(interaction.guild)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        await interaction.followup.send("`303  •  anti-raid`", view=view, ephemeral=True)
 
     @antiraid_group.command(
         name="lockdown",

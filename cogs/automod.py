@@ -38,7 +38,7 @@ class AddWordModal(discord.ui.Modal, title="303  •  block word"):
         word = self.word_input.value.strip().lower()
         await self.cog.bot.db.add_bad_word(interaction.guild.id, word)
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  automod`", embed=None, view=view)
 
 
 class SpamPresetSelect(discord.ui.Select):
@@ -111,7 +111,7 @@ class SpamPresetSelect(discord.ui.Select):
             )
 
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  automod`", embed=None, view=view)
 
 
 class EscalationPresetSelect(discord.ui.Select):
@@ -174,7 +174,7 @@ class EscalationPresetSelect(discord.ui.Select):
             interaction.guild.id, "warn_threshold_ban", int(ban_w)
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  automod`", embed=None, view=view)
 
 
 class WordRemoveSelect(discord.ui.Select):
@@ -218,7 +218,7 @@ class WordRemoveSelect(discord.ui.Select):
         if word != "__none__":
             await self.cog.bot.db.remove_bad_word(interaction.guild.id, word)
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  automod`", embed=None, view=view)
 
 
 class AutoModFloatingHUD(discord.ui.View):
@@ -278,13 +278,14 @@ class AutoModFloatingHUD(discord.ui.View):
 
     async def _flip(self, interaction: discord.Interaction, column: str):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         current = int(bool(self.settings.get(column, 0)))
         new_val = 0 if current else 1
         await self.cog.bot.db.update_guild_setting(
             interaction.guild.id, column, new_val
         )
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.edit_original_response(content="`303  •  automod`", embed=None, view=view)
 
     # --- ROW 0: Core Filter Switches ---
     @discord.ui.button(label="automod", row=0)
@@ -342,7 +343,7 @@ class AutoModFloatingHUD(discord.ui.View):
         for w in list(self.words):
             await self.cog.bot.db.remove_bad_word(interaction.guild.id, w)
         view = await self.cog.build_hud_view(interaction.guild)
-        await interaction.response.edit_message(content=None, embed=None, view=view)
+        await interaction.response.edit_message(content="`303  •  automod`", embed=None, view=view)
 
 
 class AutoModCog(commands.Cog, name="AutoMod"):
@@ -380,8 +381,9 @@ class AutoModCog(commands.Cog, name="AutoMod"):
     )
     async def automod_panel(self, interaction: discord.Interaction):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         view = await self.build_hud_view(interaction.guild)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
     @automod_group.command(
         name="status",
@@ -389,26 +391,29 @@ class AutoModCog(commands.Cog, name="AutoMod"):
     )
     async def automod_status(self, interaction: discord.Interaction):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         view = await self.build_hud_view(interaction.guild)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
     @automod_group.command(
         name="addword", description="add a word to the chat filter."
     )
     async def add_word(self, interaction: discord.Interaction, word: str):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         await self.bot.db.add_bad_word(interaction.guild.id, word)
         view = await self.build_hud_view(interaction.guild)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
     @automod_group.command(
         name="removeword", description="remove a word from the chat filter."
     )
     async def remove_word(self, interaction: discord.Interaction, word: str):
         assert interaction.guild is not None
+        await interaction.response.defer(ephemeral=True)
         await self.bot.db.remove_bad_word(interaction.guild.id, word)
         view = await self.build_hud_view(interaction.guild)
-        await interaction.response.send_message(view=view, ephemeral=True)
+        await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
     async def _handle_violation(
         self,
