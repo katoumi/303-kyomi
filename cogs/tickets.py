@@ -117,6 +117,7 @@ async def open_ticket_channel(
     bot: commands.Bot,
     interaction: discord.Interaction,
     category_label: str = "support",
+    initial_details: str | None = None,
 ) -> discord.TextChannel | None:
     """Helper to provision a private ticket room and register it in SQLite."""
     assert interaction.guild is not None
@@ -207,13 +208,17 @@ async def open_ticket_channel(
         category_label,
     )
 
+    desc_lines = [
+        f"hey {interaction.user.mention} — staff will be with you shortly.\n",
+        f"╰ **topic:** `{category_label}`",
+        f"╰ **user:** {interaction.user.mention} (`{interaction.user.id}`)",
+    ]
+    if initial_details:
+        desc_lines.append(f"╰ **inquiry:** {initial_details}")
+
     embed = kyomi_embed(
         title=f"ticket #{ticket_id:03d}",
-        description=(
-            f"hey {interaction.user.mention} — drop what you need below (details, questions, or links) and staff will be right with you.\n\n"
-            f"╰ **topic:** `{category_label}`\n"
-            f"╰ **user:** {interaction.user.mention} (`{interaction.user.id}`)"
-        ),
+        description="\n".join(desc_lines),
         color=COLOR_OBSIDIAN,
         tag=None,
         footer=None,
@@ -236,6 +241,50 @@ async def open_ticket_channel(
         ephemeral=True,
     )
     return ticket_channel
+
+
+class OpenTicketModal(discord.ui.Modal, title="open ticket"):
+    category_input = discord.ui.TextInput(
+        label="category",
+        placeholder="partnership, support, report, staff application, perk claiming",
+        default="support",
+        required=True,
+        max_length=40,
+    )
+    details_input = discord.ui.TextInput(
+        label="details / inquiry (optional)",
+        style=discord.TextStyle.paragraph,
+        placeholder="describe what you need help with or questions you have...",
+        required=False,
+        max_length=500,
+    )
+
+    def __init__(self, bot: commands.Bot):
+        super().__init__()
+        self.bot = bot
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        raw = self.category_input.value.strip().lower()
+
+        if "part" in raw:
+            cat = "partnership"
+        elif "rep" in raw:
+            cat = "report"
+        elif "staff" in raw or "app" in raw:
+            cat = "staff application"
+        elif "perk" in raw or "claim" in raw:
+            cat = "perk claiming"
+        else:
+            cat = "support"
+
+        details = self.details_input.value.strip() or None
+        await open_ticket_channel(
+            self.bot,
+            interaction,
+            category_label=cat,
+            initial_details=details,
+        )
 
 
 class AddMemberModal(discord.ui.Modal, title="add member to ticket"):
@@ -497,7 +546,7 @@ class TicketControlView(discord.ui.View):
         await interaction.response.send_modal(AddMemberModal(self.bot))
 
     @discord.ui.button(
-        label="📁 archive",
+        label="archive",
         style=discord.ButtonStyle.secondary,
         custom_id="ticket:archive",
         row=0,
@@ -600,8 +649,7 @@ class TicketButton(discord.ui.Button):
         self.bot = bot
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        await open_ticket_channel(self.bot, interaction, category_label="support")
+        await interaction.response.send_modal(OpenTicketModal(self.bot))
 
 
 class TicketButtonView(discord.ui.View):
@@ -623,24 +671,29 @@ class TicketCategorySelect(discord.ui.Select):
         self.bot = bot
         options = [
             discord.SelectOption(
-                label="✦ general help",
-                value="general help",
-                description="questions, roles, or server help",
+                label="◈ partnership",
+                value="partnership",
+                description="server partnerships, collaborations & events",
             ),
             discord.SelectOption(
-                label="◈ report someone",
-                value="user report",
-                description="privately report a member or rule break",
+                label="✦ support",
+                value="support",
+                description="general questions, roles, or server help",
             ),
             discord.SelectOption(
-                label="✧ appeal a warn / mute",
-                value="appeal",
-                description="talk to staff about a punishment",
+                label="⊘ report",
+                value="report",
+                description="privately report a member, scam, or rule violation",
             ),
             discord.SelectOption(
-                label="◇ partnerships & other",
-                value="partnerships",
-                description="collabs, events, or speaking with owners",
+                label="✧ staff application",
+                value="staff application",
+                description="apply for trial mod, staff, or helper positions",
+            ),
+            discord.SelectOption(
+                label="◇ perk claiming",
+                value="perk claiming",
+                description="claim server booster, donor, or event rewards",
             ),
         ]
         super().__init__(
