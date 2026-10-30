@@ -51,6 +51,35 @@ def resolve_emoji(
     return raw
 
 
+def create_clean_embed(
+    title: str | None = None,
+    description: str | None = None,
+    color: discord.Color = COLOR_OBSIDIAN,
+    tag: str | None = None,
+    footer: str | None = None,
+    guild: discord.Guild | None = None,
+) -> discord.Embed:
+    """Creates a minimal embed with zero timestamps and 0% risk of TypeError."""
+    try:
+        embed = kyomi_embed(
+            title=title,
+            description=description,
+            color=color,
+            tag=tag,
+            footer=footer,
+            guild=guild,
+        )
+    except TypeError:
+        embed = discord.Embed(title=title, description=description, color=color)
+        if tag:
+            icon_url = guild.icon.url if (guild and guild.icon) else None
+            embed.set_author(name=tag, icon_url=icon_url)
+        if footer:
+            embed.set_footer(text=footer)
+    embed.timestamp = None
+    return embed
+
+
 async def generate_and_log_transcript(
     bot: commands.Bot,
     channel: discord.TextChannel,
@@ -217,16 +246,14 @@ async def open_ticket_channel(
     if initial_details:
         desc_lines.append(f"╰ **inquiry:** {initial_details}")
 
-    embed = kyomi_embed(
+    embed = create_clean_embed(
         title=f"ticket #{ticket_id:03d}",
         description="\n".join(desc_lines),
         color=COLOR_OBSIDIAN,
         tag=None,
         footer=None,
         guild=interaction.guild,
-        with_timestamp=False,
     )
-    embed.timestamp = None
 
     ping_text = (
         f"{interaction.user.mention} {support_role.mention}"
@@ -507,14 +534,12 @@ class TicketArchivedView(discord.ui.View):
 
         await self.bot.db.reopen_ticket_record(interaction.channel.id)
 
-        embed = kyomi_embed(
+        embed = create_clean_embed(
             description=f"╰ *ticket reopened by {interaction.user.mention}*",
             color=COLOR_MINT,
             tag=None,
             footer=None,
-            with_timestamp=False,
         )
-        embed.timestamp = None
         await interaction.channel.send(embed=embed, view=TicketControlView(self.bot))
         await interaction.followup.send("*ticket restored to active.*", ephemeral=True)
 
@@ -591,14 +616,12 @@ class TicketControlView(discord.ui.View):
         button.label = f"● claimed · {interaction.user.display_name.lower()}"
         await interaction.response.edit_message(view=self)
 
-        notice = kyomi_embed(
+        notice = create_clean_embed(
             description=f"{interaction.user.mention} *is handling this ticket now.*",
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
-            with_timestamp=False,
         )
-        notice.timestamp = None
         await interaction.channel.send(embed=notice)
 
     @discord.ui.button(
@@ -634,14 +657,12 @@ class TicketControlView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-        alert = kyomi_embed(
+        alert = create_clean_embed(
             description=f"*marked as **urgent** by {interaction.user.mention}*",
             color=COLOR_CRIMSON,
             tag=None,
             footer=None,
-            with_timestamp=False,
         )
-        alert.timestamp = None
         await interaction.channel.send(embed=alert)
 
     @discord.ui.button(
@@ -712,7 +733,7 @@ class TicketControlView(discord.ui.View):
         await generate_and_log_transcript(self.bot, interaction.channel, interaction.user, action_name="archived")
 
         # Post archive notice with Reopen & Delete controls
-        arch_embed = kyomi_embed(
+        arch_embed = create_clean_embed(
             description=(
                 f"**ticket archived**\n"
                 f"╰ **archived by:** {interaction.user.mention}\n"
@@ -723,9 +744,7 @@ class TicketControlView(discord.ui.View):
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
-            with_timestamp=False,
         )
-        arch_embed.timestamp = None
         await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
 
     @discord.ui.button(
@@ -902,16 +921,14 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
         panel_title = self.title_input.value.strip() or None
         panel_footer = self.footer_input.value.strip() or None
 
-        embed = kyomi_embed(
+        embed = create_clean_embed(
             title=panel_title,
             description=self.panel_text.value.strip(),
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=panel_footer,
             guild=interaction.guild,
-            with_timestamp=False,
         )
-        embed.timestamp = None
 
         view = TicketButtonView(
             self.bot,
@@ -1031,16 +1048,14 @@ class TicketsCog(commands.Cog, name="Tickets"):
         )
 
         if as_embed:
-            embed = kyomi_embed(
+            embed = create_clean_embed(
                 title=title,
                 description=text,
                 color=COLOR_OBSIDIAN,
                 tag=None,
                 footer=footer,
                 guild=interaction.guild,
-                with_timestamp=False,
             )
-            embed.timestamp = None
             await interaction.channel.send(embed=embed, view=view)
         else:
             msg_content = f"**{title}**\n\n{text}" if title else text
@@ -1100,7 +1115,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
 
         await generate_and_log_transcript(self.bot, interaction.channel, interaction.user, action_name="archived")
 
-        arch_embed = kyomi_embed(
+        arch_embed = create_clean_embed(
             description=(
                 f"**ticket archived**\n"
                 f"╰ **archived by:** {interaction.user.mention}\n"
@@ -1111,9 +1126,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
             color=COLOR_OBSIDIAN,
             tag=None,
             footer=None,
-            with_timestamp=False,
         )
-        arch_embed.timestamp = None
         await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
         await interaction.response.send_message("╰ *ticket archived.*", ephemeral=True)
 
