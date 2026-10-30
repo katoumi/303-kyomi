@@ -608,7 +608,7 @@ class WebDashboard:
     def __init__(self, bot: discord.Client, db: Database, port: int = 3030):
         self.bot = bot
         self.db = db
-        self.port = int(os.getenv("PORT", port))
+        self.port = int(os.getenv("PORT", os.getenv("SERVER_PORT", port)))
         self.password = os.getenv("DASHBOARD_PASSWORD", "").strip()
         self.runner: web.AppRunner | None = None
 
