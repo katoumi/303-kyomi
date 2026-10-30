@@ -1,9 +1,27 @@
 import asyncio
 import logging
 import os
+import shutil
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+
+# Auto self-healing for panels extracting archives with backslashes
+try:
+    os.makedirs("cogs", exist_ok=True)
+    for entry in os.listdir("."):
+        if ("\\" in entry or "/" in entry) and entry.lower().startswith("cogs"):
+            clean_name = entry.replace("/", "\\").split("\\")[-1]
+            dest = os.path.join("cogs", clean_name)
+            try:
+                if os.path.exists(dest):
+                    os.remove(dest)
+                shutil.move(entry, dest)
+                print(f"[self-heal] moved {entry} -> {dest}")
+            except Exception as e:
+                print(f"[self-heal] error moving {entry}: {e}")
+except Exception as e:
+    print(f"[self-heal] scan error: {e}")
 
 from database import Database
 from dashboard import WebDashboard
