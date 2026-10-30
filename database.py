@@ -263,6 +263,22 @@ class Database:
         )
         await self.conn.commit()
 
+    async def archive_ticket_record(self, channel_id: int) -> None:
+        assert self.conn is not None
+        await self.conn.execute(
+            "UPDATE tickets SET status = 'archived' WHERE channel_id = ?",
+            (channel_id,),
+        )
+        await self.conn.commit()
+
+    async def reopen_ticket_record(self, channel_id: int) -> None:
+        assert self.conn is not None
+        await self.conn.execute(
+            "UPDATE tickets SET status = 'open' WHERE channel_id = ?",
+            (channel_id,),
+        )
+        await self.conn.commit()
+
     # --- Bump Tracker & Leaderboard ---
     async def record_bump(self, guild_id: int, user_id: int, next_timestamp: int) -> int:
         assert self.conn is not None

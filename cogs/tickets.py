@@ -51,6 +51,68 @@ def resolve_emoji(
     return raw
 
 
+async def generate_and_log_transcript(
+    bot: commands.Bot,
+    channel: discord.TextChannel,
+    closed_by: discord.Member | discord.User,
+    action_name: str = "closed",
+) -> None:
+    """Generates markdown transcript and sends to configured log channel."""
+    lines = [
+        f"# 303 kyomi · ticket transcript (#{channel.name})",
+        f"- server: {channel.guild.name} ({channel.guild.id})",
+        f"- action: {action_name} by {closed_by} ({closed_by.id})",
+        f"- date: {datetime.datetime.now(datetime.timezone.utc).isoformat()}",
+        "---\n",
+    ]
+    async for msg in channel.history(limit=500, oldest_first=True):
+        timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        content = msg.content or ""
+        attachments = (
+            " [attachments: " + ", ".join(a.url for a in msg.attachments) + "]"
+            if msg.attachments
+            else ""
+        )
+        lines.append(f"[{timestamp}] {msg.author} ({msg.author.id}): {content}{attachments}")
+
+    transcript_bytes = "\n".join(lines).encode("utf-8")
+    ticket_data = await bot.db.get_ticket_by_channel(channel.id)
+
+    settings = await bot.db.get_guild_settings(channel.guild.id)
+    log_channel_id = settings.get("ticket_log_channel_id") or settings.get(
+        "mod_log_channel_id"
+    )
+    if log_channel_id:
+        log_channel = channel.guild.get_channel(log_channel_id)
+        if isinstance(log_channel, discord.TextChannel):
+            owner_str = (
+                f"<@{ticket_data['owner_id']}> (`{ticket_data['owner_id']}`)"
+                if ticket_data
+                else "unknown"
+            )
+            cat_str = ticket_data["category"] if ticket_data else "support"
+            embed = kyomi_embed(
+                description=(
+                    f"**{action_name} #{channel.name}**\n"
+                    f"╰ **opened by:** {owner_str}\n"
+                    f"╰ **topic:** `{cat_str}`\n"
+                    f"╰ **{action_name} by:** {closed_by.mention}"
+                ),
+                color=COLOR_OBSIDIAN,
+                tag=None,
+                footer=None,
+                guild=channel.guild,
+            )
+            file_obj = discord.File(
+                io.BytesIO(transcript_bytes),
+                filename=f"303-{channel.name}.md",
+            )
+            try:
+                await log_channel.send(embed=embed, file=file_obj)
+            except discord.HTTPException:
+                pass
+
+
 async def open_ticket_channel(
     bot: commands.Bot,
     interaction: discord.Interaction,
@@ -216,7 +278,127 @@ class AddMemberModal(discord.ui.Modal, title="add member to ticket"):
         )
 
 
+async def execute_close_sequence(
+    bot: commands.Bot,
+    channel: discord.TextChannel,
+    closed_by: discord.Member | discord.User,
+    interaction: discord.Interaction | None = None,
+):
+    """Handles animated 5-second countdown and deletes channel after logging transcript."""
+    bar_init = progress_bar(5, 5, length=10)
+    countdown_embed = kyomi_embed(
+        description=f"╰ *saving transcript & closing in **`5s`**  `{bar_init}`*",
+        color=COLOR_CRIMSON,
+        tag=None,
+        footer=None,
+    )
+    status_msg = await channel.send(embed=countdown_embed)
+
+    await generate_and_log_transcript(bot, channel, closed_by, action_name="closed")
+    await bot.db.close_ticket_record(channel.id)
+
+    for remaining in range(4, -1, -1):
+        await asyncio.sleep(1)
+        bar = progress_bar(remaining, 5, length=10)
+        label_txt = (
+            f"╰ *saving transcript & closing in **`{remaining}s`**  `{bar}`*"
+            if remaining > 0
+            else f"╰ *closed  `{bar}`*"
+        )
+        countdown_embed.description = label_txt
+        try:
+            await status_msg.edit(embed=countdown_embed)
+        except discord.HTTPException:
+            break
+
+    try:
+        await channel.delete(reason=f"closed by {closed_by}")
+    except discord.HTTPException:
+        pass
+
+
+class TicketArchivedView(discord.ui.View):
+    """Persistent controls shown inside an archived ticket channel."""
+    def __init__(self, bot: commands.Bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(
+        label="✦ reopen",
+        style=discord.ButtonStyle.secondary,
+        custom_id="ticket:reopen",
+        row=0,
+    )
+    async def reopen_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        assert interaction.guild is not None
+        assert isinstance(interaction.channel, discord.TextChannel)
+
+        ticket_data = await self.bot.db.get_ticket_by_channel(interaction.channel.id)
+        if not ticket_data:
+            return await interaction.response.send_message(
+                "*ticket record not found.*", ephemeral=True
+            )
+
+        owner = interaction.guild.get_member(ticket_data["owner_id"])
+        if owner:
+            await interaction.channel.set_permissions(
+                owner,
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True,
+                attach_files=True,
+                embed_links=True,
+            )
+
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        active_cat_id = settings.get("ticket_category_id")
+        active_category = (
+            interaction.guild.get_channel(active_cat_id) if active_cat_id else None
+        )
+        if isinstance(active_category, discord.CategoryChannel):
+            try:
+                await interaction.channel.edit(category=active_category)
+            except discord.HTTPException:
+                pass
+
+        clean_name = interaction.channel.name.replace("arch-", "t-")
+        try:
+            await interaction.channel.edit(name=clean_name)
+        except discord.HTTPException:
+            pass
+
+        await self.bot.db.reopen_ticket_record(interaction.channel.id)
+
+        embed = kyomi_embed(
+            description=f"╰ *ticket reopened by {interaction.user.mention}*",
+            color=COLOR_MINT,
+            tag=None,
+            footer=None,
+        )
+        await interaction.channel.send(embed=embed, view=TicketControlView(self.bot))
+        await interaction.response.send_message("*ticket restored to active.*", ephemeral=True)
+
+    @discord.ui.button(
+        label="× delete",
+        style=discord.ButtonStyle.danger,
+        custom_id="ticket:delete",
+        row=0,
+    )
+    async def delete_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        assert isinstance(interaction.channel, discord.TextChannel)
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        await interaction.response.edit_message(view=self)
+        await execute_close_sequence(self.bot, interaction.channel, interaction.user, interaction)
+
+
 class TicketControlView(discord.ui.View):
+    """In-channel action controls for active tickets."""
     def __init__(self, bot: commands.Bot):
         super().__init__(timeout=None)
         self.bot = bot
@@ -315,6 +497,75 @@ class TicketControlView(discord.ui.View):
         await interaction.response.send_modal(AddMemberModal(self.bot))
 
     @discord.ui.button(
+        label="📁 archive",
+        style=discord.ButtonStyle.secondary,
+        custom_id="ticket:archive",
+        row=0,
+    )
+    async def archive_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        assert interaction.guild is not None
+        assert isinstance(interaction.channel, discord.TextChannel)
+
+        # Disable current panel
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                item.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        # Update database record
+        await self.bot.db.archive_ticket_record(interaction.channel.id)
+
+        # Lock channel permissions for ticket owner (read-only)
+        ticket_data = await self.bot.db.get_ticket_by_channel(interaction.channel.id)
+        if ticket_data:
+            owner = interaction.guild.get_member(ticket_data["owner_id"])
+            if owner:
+                await interaction.channel.set_permissions(
+                    owner,
+                    view_channel=True,
+                    send_messages=False,
+                    add_reactions=False,
+                    read_message_history=True,
+                )
+
+        # Move to archive category if configured
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        archive_cat_id = settings.get("ticket_archive_category_id")
+        if archive_cat_id:
+            arch_cat = interaction.guild.get_channel(archive_cat_id)
+            if isinstance(arch_cat, discord.CategoryChannel):
+                try:
+                    await interaction.channel.edit(category=arch_cat)
+                except discord.HTTPException:
+                    pass
+
+        # Rename channel with arch- prefix
+        if not interaction.channel.name.startswith("arch-"):
+            clean_name = f"arch-{interaction.channel.name}"[:95]
+            try:
+                await interaction.channel.edit(name=clean_name)
+            except discord.HTTPException:
+                pass
+
+        # Generate and send transcript to log channel
+        await generate_and_log_transcript(self.bot, interaction.channel, interaction.user, action_name="archived")
+
+        # Post archive notice with Reopen & Delete controls
+        arch_embed = kyomi_embed(
+            description=(
+                f"**ticket archived**\n"
+                f"╰ **archived by:** {interaction.user.mention}\n"
+                f"╰ **status:** *read-only (transcript logged)*\n"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag=None,
+            footer=None,
+        )
+        await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
+
+    @discord.ui.button(
         label="× close",
         style=discord.ButtonStyle.danger,
         custom_id="ticket:close",
@@ -323,100 +574,12 @@ class TicketControlView(discord.ui.View):
     async def close_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        assert interaction.guild is not None
         assert isinstance(interaction.channel, discord.TextChannel)
-
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 item.disabled = True
         await interaction.response.edit_message(view=self)
-
-        bar_init = progress_bar(5, 5, length=10)
-        countdown_embed = kyomi_embed(
-            description=f"╰ *saving transcript & closing in **`5s`**  `{bar_init}`*",
-            color=COLOR_CRIMSON,
-            tag=None,
-            footer=None,
-        )
-        status_msg = await interaction.channel.send(embed=countdown_embed)
-
-        lines = [
-            f"# 303 kyomi · ticket transcript (#{interaction.channel.name})",
-            f"- server: {interaction.guild.name} ({interaction.guild.id})",
-            f"- closed by: {interaction.user} ({interaction.user.id})",
-            f"- date: {datetime.datetime.now(datetime.timezone.utc).isoformat()}",
-            "---\n",
-        ]
-        async for msg in interaction.channel.history(limit=500, oldest_first=True):
-            timestamp = msg.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            content = msg.content or ""
-            attachments = (
-                " [attachments: " + ", ".join(a.url for a in msg.attachments) + "]"
-                if msg.attachments
-                else ""
-            )
-            lines.append(
-                f"[{timestamp}] {msg.author} ({msg.author.id}): {content}{attachments}"
-            )
-
-        transcript_bytes = "\n".join(lines).encode("utf-8")
-        ticket_data = await self.bot.db.get_ticket_by_channel(interaction.channel.id)
-        await self.bot.db.close_ticket_record(interaction.channel.id)
-
-        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
-        log_channel_id = settings.get("ticket_log_channel_id") or settings.get(
-            "mod_log_channel_id"
-        )
-        if log_channel_id:
-            log_channel = interaction.guild.get_channel(log_channel_id)
-            if isinstance(log_channel, discord.TextChannel):
-                owner_str = (
-                    f"<@{ticket_data['owner_id']}> (`{ticket_data['owner_id']}`)"
-                    if ticket_data
-                    else "unknown"
-                )
-                cat_str = ticket_data["category"] if ticket_data else "support"
-                embed = kyomi_embed(
-                    description=(
-                        f"**closed #{interaction.channel.name}**\n"
-                        f"╰ **opened by:** {owner_str}\n"
-                        f"╰ **topic:** `{cat_str}`\n"
-                        f"╰ **closed by:** {interaction.user.mention}"
-                    ),
-                    color=COLOR_OBSIDIAN,
-                    tag=None,
-                    footer=None,
-                    guild=interaction.guild,
-                )
-                file_obj = discord.File(
-                    io.BytesIO(transcript_bytes),
-                    filename=f"303-{interaction.channel.name}.md",
-                )
-                try:
-                    await log_channel.send(embed=embed, file=file_obj)
-                except discord.HTTPException:
-                    pass
-
-        for remaining in range(4, -1, -1):
-            await asyncio.sleep(1)
-            bar = progress_bar(remaining, 5, length=10)
-            label_txt = (
-                f"╰ *saving transcript & closing in **`{remaining}s`**  `{bar}`*"
-                if remaining > 0
-                else f"╰ *closed  `{bar}`*"
-            )
-            countdown_embed.description = label_txt
-            try:
-                await status_msg.edit(embed=countdown_embed)
-            except discord.HTTPException:
-                break
-
-        try:
-            await interaction.channel.delete(
-                reason=f"closed by {interaction.user}"
-            )
-        except discord.HTTPException:
-            pass
+        await execute_close_sequence(self.bot, interaction.channel, interaction.user, interaction)
 
 
 class TicketButton(discord.ui.Button):
@@ -568,7 +731,7 @@ class CustomPanelModal(discord.ui.Modal, title="custom ticket panel"):
 
 
 class TicketsCog(commands.Cog, name="Tickets"):
-    """Minimalist dark ticket panel, custom emojis from any server, and clean transcripts."""
+    """Minimalist dark ticket panel, custom emojis, archive mode, and clean transcripts."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -577,6 +740,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
         self.bot.add_view(TicketButtonView(self.bot))
         self.bot.add_view(TicketPanelView(self.bot))
         self.bot.add_view(TicketControlView(self.bot))
+        self.bot.add_view(TicketArchivedView(self.bot))
 
     ticket_group = app_commands.Group(
         name="ticket",
@@ -587,7 +751,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
 
     @ticket_group.command(
         name="setup",
-        description="configure the category, log channel, and staff role for tickets.",
+        description="configure the category, log channel, staff role, and optional archive category.",
     )
     async def ticket_setup(
         self,
@@ -595,6 +759,7 @@ class TicketsCog(commands.Cog, name="Tickets"):
         category: discord.CategoryChannel,
         log_channel: discord.TextChannel,
         support_role: discord.Role | None = None,
+        archive_category: discord.CategoryChannel | None = None,
     ):
         assert interaction.guild is not None
         await self.bot.db.update_guild_setting(
@@ -607,14 +772,19 @@ class TicketsCog(commands.Cog, name="Tickets"):
             await self.bot.db.update_guild_setting(
                 interaction.guild.id, "ticket_support_role_id", support_role.id
             )
+        if archive_category:
+            await self.bot.db.update_guild_setting(
+                interaction.guild.id, "ticket_archive_category_id", archive_category.id
+            )
 
         embed = kyomi_embed(
             description=(
                 f"**tickets configured**\n"
-                f"╰ **category:** `{category.name.lower()}`\n"
+                f"╰ **active category:** `{category.name.lower()}`\n"
+                f"╰ **archive category:** `{archive_category.name.lower() if archive_category else 'none'}`\n"
                 f"╰ **transcripts:** {log_channel.mention}\n"
                 f"╰ **staff role:** {support_role.mention if support_role else '*mods only*'}\n\n"
-                "*use `/ticket panel` to drop your custom button or dropdown panel.*"
+                "*use `/ticket panel` or `/ticket builder` to deploy your panel.*"
             ),
             color=COLOR_OBSIDIAN,
             tag=None,
@@ -688,6 +858,62 @@ class TicketsCog(commands.Cog, name="Tickets"):
     )
     async def ticket_builder(self, interaction: discord.Interaction):
         await interaction.response.send_modal(CustomPanelModal(self.bot))
+
+    @ticket_group.command(
+        name="archive",
+        description="archive the current ticket channel (locks channel & logs transcript).",
+    )
+    async def ticket_archive(self, interaction: discord.Interaction):
+        assert isinstance(interaction.channel, discord.TextChannel)
+        ticket = await self.bot.db.get_ticket_by_channel(interaction.channel.id)
+        if not ticket:
+            return await interaction.response.send_message(
+                "*this channel is not an active ticket room.*", ephemeral=True
+            )
+
+        await self.bot.db.archive_ticket_record(interaction.channel.id)
+
+        owner = interaction.guild.get_member(ticket["owner_id"])
+        if owner:
+            await interaction.channel.set_permissions(
+                owner,
+                view_channel=True,
+                send_messages=False,
+                add_reactions=False,
+                read_message_history=True,
+            )
+
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        archive_cat_id = settings.get("ticket_archive_category_id")
+        if archive_cat_id:
+            arch_cat = interaction.guild.get_channel(archive_cat_id)
+            if isinstance(arch_cat, discord.CategoryChannel):
+                try:
+                    await interaction.channel.edit(category=arch_cat)
+                except discord.HTTPException:
+                    pass
+
+        if not interaction.channel.name.startswith("arch-"):
+            clean_name = f"arch-{interaction.channel.name}"[:95]
+            try:
+                await interaction.channel.edit(name=clean_name)
+            except discord.HTTPException:
+                pass
+
+        await generate_and_log_transcript(self.bot, interaction.channel, interaction.user, action_name="archived")
+
+        arch_embed = kyomi_embed(
+            description=(
+                f"**ticket archived**\n"
+                f"╰ **archived by:** {interaction.user.mention}\n"
+                f"╰ **status:** *read-only (transcript logged)*\n"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag=None,
+            footer=None,
+        )
+        await interaction.channel.send(embed=arch_embed, view=TicketArchivedView(self.bot))
+        await interaction.response.send_message("╰ *ticket archived.*", ephemeral=True)
 
     @ticket_group.command(
         name="add",
