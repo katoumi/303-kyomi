@@ -244,41 +244,56 @@ async def open_ticket_channel(
     return ticket_channel
 
 
-class OpenTicketModal(discord.ui.Modal, title="open ticket"):
-    category_input = discord.ui.TextInput(
-        label="category",
-        placeholder="partnership, support, report, staff application, perk claiming",
-        default="support",
-        required=True,
-        max_length=40,
-    )
-    details_input = discord.ui.TextInput(
-        label="details / inquiry (optional)",
-        style=discord.TextStyle.paragraph,
-        placeholder="describe what you need help with or questions you have...",
-        required=False,
-        max_length=500,
-    )
-
+class OpenTicketDropdownModal(discord.ui.Modal, title="open ticket"):
+    """Modal with a category dropdown and an optional inquiry description input."""
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
+        self.category_select = discord.ui.Select(
+            placeholder="choose inquiry category...",
+            min_values=1,
+            max_values=1,
+            options=[
+                discord.SelectOption(
+                    label="◈ partnership",
+                    value="partnership",
+                    description="server partnerships, collaborations & events",
+                ),
+                discord.SelectOption(
+                    label="✦ support",
+                    value="support",
+                    description="general questions, roles, or server help",
+                ),
+                discord.SelectOption(
+                    label="⊘ report",
+                    value="report",
+                    description="privately report a member, scam, or rule violation",
+                ),
+                discord.SelectOption(
+                    label="✧ staff application",
+                    value="staff application",
+                    description="apply for trial mod, staff, or helper positions",
+                ),
+                discord.SelectOption(
+                    label="◇ perk claiming",
+                    value="perk claiming",
+                    description="claim server booster, donor, or event rewards",
+                ),
+            ],
+        )
+        self.add_item(self.category_select)
+        self.details_input = discord.ui.TextInput(
+            label="details / inquiry (optional)",
+            style=discord.TextStyle.paragraph,
+            placeholder="briefly explain your inquiry or questions...",
+            required=False,
+            max_length=500,
+        )
+        self.add_item(self.details_input)
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
-        raw = self.category_input.value.strip().lower()
-
-        if "part" in raw:
-            cat = "partnership"
-        elif "rep" in raw:
-            cat = "report"
-        elif "staff" in raw or "app" in raw:
-            cat = "staff application"
-        elif "perk" in raw or "claim" in raw:
-            cat = "perk claiming"
-        else:
-            cat = "support"
-
+        cat = self.category_select.values[0] if self.category_select.values else "support"
         details = self.details_input.value.strip() or None
         await open_ticket_channel(
             self.bot,
@@ -286,6 +301,55 @@ class OpenTicketModal(discord.ui.Modal, title="open ticket"):
             category_label=cat,
             initial_details=details,
         )
+
+
+class EphemeralCategorySelect(discord.ui.Select):
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        options = [
+            discord.SelectOption(
+                label="◈ partnership",
+                value="partnership",
+                description="server partnerships, collaborations & events",
+            ),
+            discord.SelectOption(
+                label="✦ support",
+                value="support",
+                description="general questions, roles, or server help",
+            ),
+            discord.SelectOption(
+                label="⊘ report",
+                value="report",
+                description="privately report a member, scam, or rule violation",
+            ),
+            discord.SelectOption(
+                label="✧ staff application",
+                value="staff application",
+                description="apply for trial mod, staff, or helper positions",
+            ),
+            discord.SelectOption(
+                label="◇ perk claiming",
+                value="perk claiming",
+                description="claim server booster, donor, or event rewards",
+            ),
+        ]
+        super().__init__(
+            placeholder="choose category...",
+            min_values=1,
+            max_values=1,
+            options=options,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        cat = self.values[0]
+        await open_ticket_channel(self.bot, interaction, category_label=cat)
+
+
+class EphemeralCategorySelectView(discord.ui.View):
+    def __init__(self, bot: commands.Bot):
+        super().__init__(timeout=120)
+        self.add_item(EphemeralCategorySelect(bot))
 
 
 class AddMemberModal(discord.ui.Modal, title="add member to ticket"):
@@ -644,7 +708,9 @@ class TicketControlView(discord.ui.View):
             description=(
                 f"**ticket archived**\n"
                 f"╰ **archived by:** {interaction.user.mention}\n"
-                f"╰ **status:** *read-only (transcript logged)*\n"
+                f"╰ **transcript:** saved & logged\n"
+                f"╰ **member status:** read-only (new ticket creation locked)\n\n"
+                "*staff can restore or permanently remove this room using the actions below.*"
             ),
             color=COLOR_OBSIDIAN,
             tag=None,
@@ -687,7 +753,34 @@ class TicketButton(discord.ui.Button):
         self.bot = bot
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(OpenTicketModal(self.bot))
+        # Prevent users with open or archived tickets from opening another
+        existing = await self.bot.db.get_open_ticket_by_user(
+            interaction.guild.id, interaction.user.id
+        )
+        if existing:
+            ch = interaction.guild.get_channel(existing["channel_id"])
+            if ch:
+                status_str = "archived" if existing.get("status") == "archived" else "active"
+                return await interaction.response.send_message(
+                    f"*you already have an {status_str} ticket: {ch.mention}. you cannot open a new ticket until staff deletes or closes your existing one.*",
+                    ephemeral=True,
+                )
+            else:
+                await self.bot.db.close_ticket_record(existing["channel_id"])
+
+        try:
+            await interaction.response.send_modal(OpenTicketDropdownModal(self.bot))
+        except discord.HTTPException:
+            # Fallback if specific client rejects dropdown directly inside modal
+            embed = kyomi_embed(
+                description="╰ *choose a category for your ticket below:*",
+                color=COLOR_OBSIDIAN,
+            )
+            await interaction.response.send_message(
+                embed=embed,
+                view=EphemeralCategorySelectView(self.bot),
+                ephemeral=True,
+            )
 
 
 class TicketButtonView(discord.ui.View):
@@ -997,7 +1090,9 @@ class TicketsCog(commands.Cog, name="Tickets"):
             description=(
                 f"**ticket archived**\n"
                 f"╰ **archived by:** {interaction.user.mention}\n"
-                f"╰ **status:** *read-only (transcript logged)*\n"
+                f"╰ **transcript:** saved & logged\n"
+                f"╰ **member status:** read-only (new ticket creation locked)\n\n"
+                "*staff can restore or permanently remove this room using the actions below.*"
             ),
             color=COLOR_OBSIDIAN,
             tag=None,
