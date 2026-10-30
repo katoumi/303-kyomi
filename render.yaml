@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: 303-kyomi-bot
+    runtime: docker
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3030
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
