@@ -16,528 +16,826 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>303 KYOMI // OPERATOR CONSOLE</title>
+  <title>KYOMI-303 // OPERATOR CONSOLE</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #070709;
-      --surface: #0e0e12;
-      --surface-hover: #14141a;
-      --card: #111116;
-      --border: #1b1b22;
-      --border-light: #262632;
+      --surface: #0c0c10;
+      --surface-raised: #101015;
+      --card: #0f0f14;
+      --border: #1a1a22;
+      --border-bright: #282836;
       --text: #eaebee;
-      --muted: #6f7082;
+      --text-dim: #9293a3;
+      --muted: #5a5b6a;
       --accent: #8a1c27;
-      --accent-glow: rgba(138, 28, 39, 0.25);
-      --mint: #5bb98c;
-      --mint-glow: rgba(91, 185, 140, 0.2);
-      --amber: #d4a359;
-      --font: 'Inter', -apple-system, sans-serif;
-      --mono: 'JetBrains Mono', monospace;
+      --accent-bright: #b82534;
+      --accent-muted: rgba(138, 28, 39, 0.2);
+      --mint: #4ea87d;
+      --mint-muted: rgba(78, 168, 125, 0.15);
+      --amber: #c5974c;
+      --amber-muted: rgba(197, 151, 76, 0.15);
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+      --sans: 'Inter', -apple-system, sans-serif;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
       background-color: var(--bg);
       background-image:
-        radial-gradient(circle at 10% 5%, rgba(138, 28, 39, 0.08), transparent 30%),
-        radial-gradient(circle at 90% 85%, rgba(255, 255, 255, 0.02), transparent 40%);
+        linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+      background-size: 32px 32px;
       color: var(--text);
-      font-family: var(--font);
+      font-family: var(--sans);
       min-height: 100vh;
-      padding: 24px 20px 60px;
-      letter-spacing: -0.01em;
+      padding: 16px 20px 48px;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
-    .container { max-width: 1140px; margin: 0 auto; }
+    .container { max-width: 1220px; margin: 0 auto; }
 
-    /* Auth Overlay */
+    /* Tactical Auth Modal */
     #authOverlay {
       position: fixed; inset: 0;
-      background: rgba(7, 7, 9, 0.96); backdrop-filter: blur(12px);
+      background: rgba(5, 5, 7, 0.94);
+      backdrop-filter: blur(8px);
       display: flex; align-items: center; justify-content: center; z-index: 9999;
     }
     .auth-box {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 32px; width: 100%; max-width: 380px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+      background: var(--surface);
+      border: 1px solid var(--border-bright);
+      border-radius: 2px;
+      padding: 28px; width: 100%; max-width: 380px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.9);
     }
-    .auth-box h2 {
-      font-size: 15px; font-weight: 600; text-transform: lowercase;
-      letter-spacing: 0.05em; color: var(--text); margin-bottom: 8px; font-family: var(--mono);
-    }
-    .auth-box p { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
-
-    /* Header & Vitals */
-    header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 20px; flex-wrap: wrap; gap: 16px;
-    }
-    .brand { display: flex; align-items: center; gap: 14px; }
-    .brand-mark {
-      width: 36px; height: 36px; background: var(--surface);
-      border: 1px solid var(--border); border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--mono); font-size: 13px; font-weight: 700; color: #fff;
-    }
-    .brand-title { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
-    .brand-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
-
-    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .pill {
-      font-family: var(--mono); font-size: 11px; padding: 6px 12px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; display: inline-flex; align-items: center; gap: 6px;
+    .auth-header {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
       color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
     }
-    .pill.online { color: var(--mint); border-color: rgba(91, 185, 140, 0.3); background: var(--mint-glow); }
-    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-
-    select.guild-select {
-      background: var(--surface); color: var(--text); border: 1px solid var(--border);
-      border-radius: 8px; padding: 7px 12px; font-size: 12px; font-family: var(--mono);
-      cursor: pointer; outline: none; transition: border-color 0.15s;
-    }
-    select.guild-select:focus { border-color: var(--border-light); }
-
-    /* Vitals Bar */
-    .vitals-bar {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px; margin-bottom: 22px;
-    }
-    .vital-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 14px 16px;
-    }
-    .vital-label { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 4px; }
-    .vital-val { font-size: 17px; font-weight: 600; font-family: var(--mono); color: #fff; }
-
-    /* Tabs Navigation */
-    .tabs-nav {
-      display: flex; gap: 6px; border-bottom: 1px solid var(--border);
-      padding-bottom: 12px; margin-bottom: 24px; overflow-x: auto;
-    }
-    .tab-btn {
-      background: transparent; border: 1px solid transparent; color: var(--muted);
-      font-family: var(--mono); font-size: 12px; padding: 8px 16px; border-radius: 8px;
-      cursor: pointer; transition: all 0.15s; white-space: nowrap; display: flex; align-items: center; gap: 6px;
-    }
-    .tab-btn:hover { color: var(--text); background: var(--surface); }
-    .tab-btn.active {
-      color: #fff; background: var(--surface); border-color: var(--border-light);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .tab-btn .badge {
-      font-size: 10px; background: rgba(255,255,255,0.08); padding: 2px 6px;
-      border-radius: 10px; color: var(--text);
+    .auth-title {
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+      margin-bottom: 16px;
     }
 
-    /* Tab Panes */
-    .tab-pane { display: none; }
-    .tab-pane.active { display: block; }
-
-    /* Standard Cards & Layout */
-    .grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-    @media (max-width: 860px) { .grid-2 { grid-template-columns: 1fr; } }
-
-    .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 20px; margin-bottom: 18px;
-    }
-    .card-header {
+    /* Hardware Header */
+    .hardware-bar {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 2px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 14px;
     }
-    .card-title {
-      font-size: 13px; font-weight: 600; font-family: var(--mono);
-      text-transform: lowercase; color: var(--text); display: flex; align-items: center; gap: 8px;
+    .brand-cluster { display: flex; align-items: center; gap: 14px; }
+    .brand-sigil {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 13px;
+      background: #15151c;
+      border: 1px solid var(--border-bright);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 2px;
+      letter-spacing: 0.05em;
+    }
+    .brand-meta { display: flex; flex-direction: column; }
+    .brand-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #fff;
+    }
+    .brand-sub {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
     }
 
-    /* Form Controls */
-    .setting-row {
+    .telemetry-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .tag-box {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      background: #09090d;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      display: inline-flex; align-items: center; gap: 7px;
+      color: var(--text-dim);
+    }
+    .tag-box.online {
+      border-color: rgba(78, 168, 125, 0.4);
+      color: var(--mint);
+      background: rgba(78, 168, 125, 0.06);
+    }
+    .indicator-square { width: 6px; height: 6px; background: currentColor; }
+
+    select.node-select {
+      background: #09090d;
+      color: #fff;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-family: var(--mono);
+      cursor: pointer;
+      outline: none;
+    }
+    select.node-select:focus { border-color: var(--border-bright); }
+
+    /* Vitals Telemetry Grid */
+    .vitals-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 900px) { .vitals-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 520px) { .vitals-grid { grid-template-columns: 1fr; } }
+
+    .vital-tile {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 12px 14px;
+    }
+    .vital-key {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.03);
     }
-    .setting-row:last-child { border-bottom: none; }
-    .setting-info { max-width: 70%; }
-    .setting-name { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
-    .setting-desc { font-size: 11px; color: var(--muted); }
+    .vital-num {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+    }
 
-    /* Switches */
-    .switch { position: relative; display: inline-block; width: 38px; height: 20px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; cursor: pointer; inset: 0;
-      background-color: #202028; border-radius: 20px; transition: 0.2s;
+    /* Terminal Nav Tabs */
+    .nav-rack {
+      display: flex; gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 4px;
+      margin-bottom: 14px;
+      overflow-x: auto;
     }
-    .slider:before {
-      position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px;
-      background-color: #8c8d9e; border-radius: 50%; transition: 0.2s;
+    .rack-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 7px 14px;
+      border-radius: 2px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.1s;
+      letter-spacing: 0.02em;
     }
-    input:checked + .slider { background-color: var(--accent); }
-    input:checked + .slider:before { transform: translateX(18px); background-color: #fff; }
+    .rack-tab:hover { color: var(--text); background: #111117; }
+    .rack-tab.active {
+      color: #fff;
+      background: #14141c;
+      border-color: var(--border-bright);
+      font-weight: 600;
+    }
+
+    /* Panes */
+    .pane { display: none; }
+    .pane.active { display: block; }
+
+    /* Industrial Panel Cards */
+    .panel-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .panel-headline {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: #fff;
+      text-transform: uppercase;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* Density Grid */
+    .grid-duo {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) { .grid-duo { grid-template-columns: 1fr; } }
+
+    /* Utilitarian Setting Row */
+    .op-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+    }
+    .op-row:last-child { border-bottom: none; }
+    .op-label { font-size: 12.5px; font-weight: 500; color: #fff; }
+    .op-desc { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+    /* Hardware Rocker Switches */
+    .rocker {
+      display: inline-flex;
+      background: #09090d;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 2px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 10.5px;
+      user-select: none;
+    }
+    .rocker-btn {
+      padding: 4px 10px;
+      border-radius: 2px;
+      color: var(--muted);
+      transition: all 0.1s;
+    }
+    .rocker[data-state="on"] .btn-on {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .rocker[data-state="off"] .btn-off {
+      background: #181820;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
 
     /* Inputs & Buttons */
-    input[type="text"], input[type="password"], input[type="number"] {
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--text); padding: 8px 12px; border-radius: 6px;
-      font-size: 12px; font-family: var(--mono); outline: none; transition: border-color 0.15s;
+    input[type="text"], input[type="password"], input[type="number"], select.input-ctrl {
+      background: #08080b;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: #fff;
+      padding: 7px 11px;
+      font-size: 12px;
+      font-family: var(--mono);
+      outline: none;
     }
-    input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus {
-      border-color: var(--border-light);
+    input[type="text"]:focus, input[type="password"]:focus, select.input-ctrl:focus {
+      border-color: var(--border-bright);
     }
-    .btn {
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--text); padding: 8px 14px; border-radius: 6px;
-      font-size: 12px; font-family: var(--mono); cursor: pointer;
-      display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;
+    .ctrl-btn {
+      background: #121218;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      color: #fff;
+      padding: 7px 13px;
+      font-size: 11.5px;
+      font-family: var(--mono);
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      letter-spacing: 0.02em;
+      transition: all 0.1s;
     }
-    .btn:hover { background: var(--surface-hover); border-color: var(--border-light); }
-    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn.primary:hover { opacity: 0.9; }
-    .btn.danger { background: rgba(138, 28, 39, 0.2); border-color: var(--accent); color: #ff8b97; }
-    .btn.danger:hover { background: var(--accent); color: #fff; }
+    .ctrl-btn:hover { background: #1a1a24; border-color: var(--border-bright); }
+    .ctrl-btn.armed { background: var(--accent); border-color: var(--accent-bright); color: #fff; font-weight: 600; }
+    .ctrl-btn.armed:hover { background: var(--accent-bright); }
 
     /* Tables */
-    table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: var(--mono); }
-    th { text-align: left; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); font-weight: 500; }
-    td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
-    tr:hover td { background: rgba(255,255,255,0.015); }
-
-    /* Tags */
-    .tag {
-      font-size: 10px; padding: 2px 7px; border-radius: 4px;
-      background: rgba(255,255,255,0.06); color: var(--muted); display: inline-block;
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 11.5px;
     }
-    .tag.open { background: var(--mint-glow); color: var(--mint); }
-    .tag.archived { background: rgba(212, 163, 89, 0.15); color: var(--amber); }
-    .tag.closed { background: rgba(255,255,255,0.04); color: var(--muted); }
-
-    /* Terminal logs */
-    .terminal-box {
-      background: #050507; border: 1px solid var(--border);
-      border-radius: 8px; padding: 14px; font-family: var(--mono);
-      font-size: 11px; line-height: 1.6; color: #b4b5c4; max-height: 340px;
-      overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+    table.data-table th {
+      text-align: left;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    table.data-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      color: var(--text-dim);
+    }
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+      color: #fff;
     }
 
-    /* Word Tags */
-    .word-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-    .word-chip {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 20px; padding: 3px 10px; font-size: 11px;
-      display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono);
+    /* Monochrome Status Chips */
+    .chip {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 2px;
+      background: #111116;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      display: inline-block;
     }
-    .word-del { cursor: pointer; color: var(--muted); font-weight: bold; }
-    .word-del:hover { color: #ff6b7b; }
+    .chip.green { border-color: rgba(78, 168, 125, 0.4); color: var(--mint); background: var(--mint-muted); }
+    .chip.amber { border-color: rgba(197, 151, 76, 0.4); color: var(--amber); background: var(--amber-muted); }
+    .chip.red { border-color: rgba(184, 37, 52, 0.4); color: #ff8590; background: var(--accent-muted); }
+
+    /* Word Cloud */
+    .word-matrix { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .word-unit {
+      background: #09090d;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-family: var(--mono);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .word-x { cursor: pointer; color: var(--muted); }
+    .word-x:hover { color: #ff6070; }
+
+    /* Raw Terminal Screen */
+    .screen-box {
+      background: #050507;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      line-height: 1.6;
+      color: #a4a5b4;
+      max-height: 380px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* Notification Banner */
+    #actionBanner {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #111118; border: 1px solid var(--border-bright);
+      padding: 10px 16px; border-radius: 2px;
+      font-family: var(--mono); font-size: 11.5px;
+      color: #fff; z-index: 999; display: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
   </style>
 </head>
 <body>
-  <!-- Passkey Overlay -->
+
+  <!-- Auth Passkey Screen -->
   <div id="authOverlay" style="display: none;">
     <div class="auth-box">
-      <h2>✦ operator authentication</h2>
-      <p>enter the dashboard passkey configured in .env</p>
-      <input type="password" id="passkeyInput" placeholder="passkey..." style="width: 100%; margin-bottom: 14px;">
-      <button class="btn primary" style="width: 100%; justify-content: center;" onclick="verifyPasskey()">unlock dashboard</button>
+      <div class="auth-header">KYOMI-303 // ACCESS GATE</div>
+      <div class="auth-title">OPERATOR AUTHENTICATION</div>
+      <input type="password" id="passkeyInput" placeholder="ENTER ACCESS KEY..." style="width: 100%; margin-bottom: 12px;">
+      <button class="ctrl-btn armed" style="width: 100%; justify-content: center;" onclick="verifyPasskey()">VERIFY CREDENTIALS</button>
     </div>
   </div>
 
+  <div id="actionBanner"></div>
+
   <div class="container">
-    <!-- Header -->
-    <header>
-      <div class="brand">
-        <div class="brand-mark">303</div>
-        <div>
-          <div class="brand-title">303 kyomi // console</div>
-          <div class="brand-sub">security, automation & recovery engine</div>
+    <!-- Top Hardware Header -->
+    <header class="hardware-bar">
+      <div class="brand-cluster">
+        <div class="brand-sigil">303</div>
+        <div class="brand-meta">
+          <div class="brand-title">KYOMI // OPERATOR CONSOLE</div>
+          <div class="brand-sub">CORE DAEMON v2.5.0 &bull; MONOCHROME SUBSYSTEM</div>
         </div>
       </div>
-      <div class="header-actions">
-        <div class="pill online"><div class="pill-dot"></div><span id="gatewayStatus">gateway connected</span></div>
-        <select id="guildSelect" class="guild-select" onchange="loadGuildData()">
-          <option value="">loading servers...</option>
-        </select>
+      <div class="telemetry-pills">
+        <div class="tag-box online" id="statusPill">
+          <div class="indicator-square"></div>
+          <span id="statusText">DAEMON ARMED</span>
+        </div>
+        <div class="tag-box">
+          <span>TARGET:</span>
+          <select class="node-select" id="guildSelect" onchange="loadGuildData()">
+            <option value="">LOADING CLUSTER...</option>
+          </select>
+        </div>
       </div>
     </header>
 
-    <!-- Vitals Bar -->
-    <div class="vitals-bar">
-      <div class="vital-card">
-        <div class="vital-label">gateway ping</div>
-        <div class="vital-val" id="vitalPing">-- ms</div>
+    <!-- Vitals Telemetry Row -->
+    <div class="vitals-grid">
+      <div class="vital-tile">
+        <div class="vital-key"><span>WS HEARTBEAT</span><span>PING</span></div>
+        <div class="vital-num" id="vital_ping">-- ms</div>
       </div>
-      <div class="vital-card">
-        <div class="vital-label">uptime</div>
-        <div class="vital-val" id="vitalUptime">--</div>
+      <div class="vital-tile">
+        <div class="vital-key"><span>UPTIME CADENCE</span><span>RUN</span></div>
+        <div class="vital-num" id="vital_uptime">--</div>
       </div>
-      <div class="vital-card">
-        <div class="vital-label">members cached</div>
-        <div class="vital-val" id="vitalMembers">--</div>
+      <div class="vital-tile">
+        <div class="vital-key"><span>MEMBER CACHE</span><span>POP</span></div>
+        <div class="vital-num" id="vital_members">--</div>
       </div>
-      <div class="vital-card">
-        <div class="vital-label">database size</div>
-        <div class="vital-val" id="vitalDbSize">-- KB</div>
+      <div class="vital-tile">
+        <div class="vital-key"><span>SQLITE FOOTPRINT</span><span>DISK</span></div>
+        <div class="vital-num" id="vital_dbsize">-- KB</div>
       </div>
     </div>
 
-    <!-- Navigation Tabs -->
-    <div class="tabs-nav">
-      <button class="tab-btn active" onclick="switchTab('automod')">✦ automod & security</button>
-      <button class="tab-btn" onclick="switchTab('tickets')">◈ tickets <span class="badge" id="ticketCountBadge">0</span></button>
-      <button class="tab-btn" onclick="switchTab('dossier')">✧ member dossier</button>
-      <button class="tab-btn" onclick="switchTab('snapshots')">◇ snapshots & recovery</button>
-      <button class="tab-btn" onclick="switchTab('bumping')">⊘ bump tracker</button>
-      <button class="tab-btn" onclick="switchTab('system')">† system & logs</button>
-    </div>
+    <!-- Navigation Rack -->
+    <nav class="nav-rack">
+      <button class="rack-tab active" onclick="switchPane('automod', event)">01 // AUTOMOD</button>
+      <button class="rack-tab" onclick="switchPane('tickets', event)">02 // TICKETS</button>
+      <button class="rack-tab" onclick="switchPane('dossier', event)">03 // DOSSIER</button>
+      <button class="rack-tab" onclick="switchPane('vanity', event)">04 // VANITY TRACKER</button>
+      <button class="rack-tab" onclick="switchPane('snapshots', event)">05 // SNAPSHOTS</button>
+      <button class="rack-tab" onclick="switchPane('bumping', event)">06 // DISBOARD</button>
+      <button class="rack-tab" onclick="switchPane('system', event)">07 // CONSOLE LOGS</button>
+    </nav>
 
-    <!-- TAB 1: AUTOMOD & SECURITY -->
-    <div id="tab-automod" class="tab-pane active">
-      <div class="grid-2">
-        <div>
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">✦ core automod switches</div>
+    <!-- PANE 1: AUTOMOD -->
+    <section id="pane-automod" class="pane active">
+      <div class="grid-duo">
+        <div class="panel-block">
+          <div class="panel-header">
+            <div class="panel-headline">RULESET CONFIGURATION</div>
+            <span class="chip green">SYSTEM LIVE</span>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Master AutoMod Defense</div>
+              <div class="op-desc">Global security filter and enforcement pipeline</div>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">master automod</div>
-                <div class="setting-desc">globally enables or pauses all automated message filtration</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_automod" onchange="toggleSetting('automod_enabled', this.checked)"><span class="slider"></span></label>
+            <div class="rocker" id="rocker_automod" onclick="toggleRocker('automod_enabled', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">anti-spam flood guard</div>
-                <div class="setting-desc">auto-deletes rapid message bursts & mutes sender for 5m</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_antispam" onchange="toggleSetting('anti_spam_enabled', this.checked)"><span class="slider"></span></label>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Anti-Spam Rate Gate</div>
+              <div class="op-desc">Velocity detection (5 messages / 5 seconds threshold)</div>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">ghost-ping detector</div>
-                <div class="setting-desc">exposes deleted or edited user/role mentions immediately</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_ghostping" onchange="toggleSetting('ghostping_enabled', this.checked)"><span class="slider"></span></label>
+            <div class="rocker" id="rocker_antispam" onclick="toggleRocker('anti_spam_enabled', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">cross-channel scam guard</div>
-                <div class="setting-desc">auto-purges identical messages broadcasted across 3+ channels</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_scam" onchange="toggleSetting('scam_guard_enabled', this.checked)"><span class="slider"></span></label>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Anti-Raid Ingress Shield</div>
+              <div class="op-desc">Rejects raid waves and unverified burner accounts</div>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">block server invites</div>
-                <div class="setting-desc">intercepts discord.gg links from regular members</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_invites" onchange="toggleSetting('block_invites_enabled', this.checked)"><span class="slider"></span></label>
+            <div class="rocker" id="rocker_antiraid" onclick="toggleRocker('antiraid_enabled', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">lock external links</div>
-                <div class="setting-desc">blocks all external http/https URLs from non-staff</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_links" onchange="toggleSetting('block_links_enabled', this.checked)"><span class="slider"></span></label>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Anti-Ghostping Monitor</div>
+              <div class="op-desc">Intercepts and exposes deleted mention alerts</div>
             </div>
-            <div class="setting-row">
-              <div class="setting-info">
-                <div class="setting-name">anti-raid shield</div>
-                <div class="setting-desc">quarantines accounts younger than min days & monitors join velocity</div>
-              </div>
-              <label class="switch"><input type="checkbox" id="sw_antiraid" onchange="toggleSetting('antiraid_enabled', this.checked)"><span class="slider"></span></label>
+            <div class="rocker" id="rocker_ghostping" onclick="toggleRocker('ghostping_enabled', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
+            </div>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Anti-Invite Quarantine</div>
+              <div class="op-desc">Purges unauthorized Discord server invites</div>
+            </div>
+            <div class="rocker" id="rocker_invites" onclick="toggleRocker('block_invites', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
+            </div>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Anti-Link Filter</div>
+              <div class="op-desc">Strips unauthorized external URLs from chat</div>
+            </div>
+            <div class="rocker" id="rocker_links" onclick="toggleRocker('block_links', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
             </div>
           </div>
         </div>
 
         <div>
-          <!-- Word Filter -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">⊘ blocked word filter</div>
+          <!-- Word Filter Block -->
+          <div class="panel-block">
+            <div class="panel-header">
+              <div class="panel-headline">BLACKLISTED PATTERNS</div>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="newWordInput" placeholder="add word or phrase..." style="flex: 1;">
-              <button class="btn" onclick="addWord()">+ block</button>
+            <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+              <input type="text" id="newWordInput" placeholder="ADD PHRASE / PATTERN..." style="flex: 1;">
+              <button class="ctrl-btn armed" onclick="addFilterWord()">+ ADD</button>
             </div>
-            <div class="word-cloud" id="wordCloud"></div>
+            <div class="word-matrix" id="wordMatrix">
+              <span class="chip">NO PATTERNS ARMED</span>
+            </div>
           </div>
 
-          <!-- Mod Cases -->
-          <div class="card">
-            <div class="card-header">
-              <div class="card-title">◈ recent moderation strikes</div>
-              <button class="btn" onclick="loadGuildData()" style="padding: 4px 8px; font-size: 11px;">refresh</button>
+          <!-- Mod Cases Snippet -->
+          <div class="panel-block">
+            <div class="panel-header">
+              <div class="panel-headline">RECENT DISCIPLINARY LOGS</div>
             </div>
-            <div style="max-height: 280px; overflow-y: auto;">
-              <table id="modCasesTable">
-                <thead><tr><th>action</th><th>user</th><th>reason</th></tr></thead>
-                <tbody><tr><td colspan="3" style="color: var(--muted);">loading cases...</td></tr></tbody>
-              </table>
-            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>CASE</th>
+                  <th>ACTION</th>
+                  <th>TARGET</th>
+                  <th>REASON</th>
+                </tr>
+              </thead>
+              <tbody id="modCasesBody">
+                <tr><td colspan="4" style="color: var(--muted); text-align: center;">NO RECENT INFRACTIONS</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 2: TICKETS & TRANSCRIPTS -->
-    <div id="tab-tickets" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">◈ live tickets & support records</div>
-          <button class="btn" onclick="loadTickets()">refresh tickets</button>
+    <!-- PANE 2: TICKETS -->
+    <section id="pane-tickets" class="pane">
+      <div class="panel-block">
+        <div class="panel-header">
+          <div class="panel-headline">ACTIVE & ARCHIVED TICKET REGISTRY</div>
+          <button class="ctrl-btn" onclick="loadTickets()">REFRESH FEED</button>
         </div>
-        <div style="overflow-x: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>id</th>
-                <th>category</th>
-                <th>opener</th>
-                <th>status</th>
-                <th>created</th>
-                <th>actions</th>
-              </tr>
-            </thead>
-            <tbody id="ticketsTableBody">
-              <tr><td colspan="6" style="color: var(--muted);">loading tickets...</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>CHANNEL</th>
+              <th>OPENER</th>
+              <th>TOPIC</th>
+              <th>STATE</th>
+              <th>OPENED</th>
+              <th>COMMAND</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsBody">
+            <tr><td colspan="7" style="text-align: center; color: var(--muted);">FETCHING ACTIVE ROOMS...</td></tr>
+          </tbody>
+        </table>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 3: MEMBER DOSSIER -->
-    <div id="tab-dossier" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">✧ member dossier search</div>
+    <!-- PANE 3: DOSSIER -->
+    <section id="pane-dossier" class="pane">
+      <div class="panel-block">
+        <div class="panel-header">
+          <div class="panel-headline">MEMBER INTELLIGENCE & DOSSIER SEARCH</div>
         </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-          <input type="text" id="dossierSearchInput" placeholder="enter user id or username..." style="flex: 1;">
-          <button class="btn primary" onclick="lookupDossier()">search user</button>
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <input type="text" id="dossierQuery" placeholder="USER ID OR USERNAME..." style="flex: 1;">
+          <button class="ctrl-btn armed" onclick="searchDossier()">RETRIEVE DOSSIER</button>
         </div>
 
         <div id="dossierResult" style="display: none;">
-          <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
-            <img id="dossierAvatar" style="width: 54px; height: 54px; border-radius: 50%; border: 1px solid var(--border);" src="">
-            <div>
-              <div style="font-size: 16px; font-weight: 600;" id="dossierName">kato</div>
-              <div style="font-size: 11px; color: var(--muted); font-family: var(--mono);" id="dossierMeta">id: 0 · created: --</div>
+          <div class="grid-duo">
+            <div class="panel-block" style="background: #09090d;">
+              <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px;">
+                <img id="dos_avatar" src="" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 2px;">
+                <div>
+                  <div id="dos_name" style="font-size: 15px; font-weight: 700; color: #fff; font-family: var(--mono);">--</div>
+                  <div id="dos_id" style="font-size: 11px; color: var(--muted); font-family: var(--mono);">--</div>
+                </div>
+              </div>
+              <div class="op-row">
+                <span class="op-desc">SECURITY STANDING</span>
+                <span id="dos_standing" class="chip">--</span>
+              </div>
+              <div class="op-row">
+                <span class="op-desc">JOIN DATE</span>
+                <span id="dos_joined" style="font-family: var(--mono); color: #fff;">--</span>
+              </div>
+              <div class="op-row">
+                <span class="op-desc">CREATION DATE</span>
+                <span id="dos_created" style="font-family: var(--mono); color: #fff;">--</span>
+              </div>
+              <div class="op-row">
+                <span class="op-desc">STRIKES (WARNS)</span>
+                <span id="dos_strikes" style="font-family: var(--mono); color: #fff; font-weight: 700;">0</span>
+              </div>
             </div>
-            <div style="margin-left: auto;">
-              <div class="pill" id="dossierStanding">trusted</div>
-            </div>
-          </div>
 
-          <div class="grid-2">
-            <div>
-              <div style="font-size: 12px; font-weight: 600; font-family: var(--mono); margin-bottom: 8px;">active strikes & history</div>
-              <div id="dossierStrikes" style="font-size: 12px; color: var(--muted); font-family: var(--mono); line-height: 1.6;">no strikes recorded.</div>
-            </div>
-            <div>
-              <div style="font-size: 12px; font-weight: 600; font-family: var(--mono); margin-bottom: 8px;">staff notes</div>
-              <div id="dossierNotesList" style="margin-bottom: 12px; font-size: 12px; font-family: var(--mono);"></div>
-              <div style="display: flex; gap: 6px;">
-                <input type="text" id="newNoteInput" placeholder="write staff note..." style="flex: 1;">
-                <button class="btn" onclick="addDossierNote()">+ add</button>
+            <div class="panel-block" style="background: #09090d;">
+              <div class="panel-headline" style="margin-bottom: 10px;">STAFF DOSSIER NOTES</div>
+              <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+                <input type="text" id="dos_note_input" placeholder="RECORD STAFF OBSERVATION..." style="flex: 1;">
+                <button class="ctrl-btn armed" onclick="addDossierNote()">RECORD</button>
+              </div>
+              <div id="dos_notes_list" style="max-height: 180px; overflow-y: auto;">
+                <div style="color: var(--muted); font-family: var(--mono); font-size: 11px;">NO STAFF NOTES ON RECORD</div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 4: SNAPSHOTS & RECOVERY -->
-    <div id="tab-snapshots" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">◇ server structure backups</div>
-          <button class="btn primary" onclick="createWebSnapshot()">+ create snapshot</button>
+    <!-- PANE 4: VANITY TRACKER -->
+    <section id="pane-vanity" class="pane">
+      <div class="grid-duo">
+        <div class="panel-block">
+          <div class="panel-header">
+            <div class="panel-headline">VANITY STATUS DAEMON</div>
+            <span class="chip" id="vnt_status_chip">CHECKING</span>
+          </div>
+
+          <div class="op-row">
+            <div>
+              <div class="op-label">Tracker State</div>
+              <div class="op-desc">Real-time presence listener & auto-role assignment</div>
+            </div>
+            <div class="rocker" id="rocker_vanity" onclick="toggleRocker('vanity_enabled', this)">
+              <span class="rocker-btn btn-on">ON</span>
+              <span class="rocker-btn btn-off">OFF</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <div class="op-desc" style="margin-bottom: 4px;">TARGET VANITY PHRASE</div>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="vnt_phrase_input" placeholder="e.g. .gg/303 or /303" style="flex: 1;">
+              <button class="ctrl-btn" onclick="saveVanityPhrase()">SAVE PHRASE</button>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <div class="op-desc" style="margin-bottom: 4px;">ASSIGNED SUPPORTER ROLE (ID)</div>
+            <input type="text" id="vnt_role_input" placeholder="ROLE ID..." style="width: 100%; margin-bottom: 6px;">
+            <button class="ctrl-btn" onclick="saveVanityRole()">LINK ROLE</button>
+          </div>
+
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
+            <button class="ctrl-btn armed" style="width: 100%; justify-content: center;" onclick="triggerVanityScan()">
+              ◈ SCAN & SYNC ALL CACHED MEMBERS NOW
+            </button>
+          </div>
         </div>
-        <div style="overflow-x: auto;">
-          <table>
+
+        <div class="panel-block">
+          <div class="panel-header">
+            <div class="panel-headline">ACTIVE SUPPORTERS ROSTER</div>
+            <span class="chip green" id="vnt_count_chip">0 SUPPORTERS</span>
+          </div>
+
+          <table class="data-table">
             <thead>
               <tr>
-                <th>id</th>
-                <th>label</th>
-                <th>channels</th>
-                <th>roles</th>
-                <th>created</th>
-                <th>actions</th>
+                <th>SUPPORTER</th>
+                <th>DETECTED STATUS</th>
+                <th>SINCE</th>
               </tr>
             </thead>
-            <tbody id="snapshotsTableBody">
-              <tr><td colspan="6" style="color: var(--muted);">loading snapshots...</td></tr>
+            <tbody id="vnt_supporters_body">
+              <tr><td colspan="3" style="text-align: center; color: var(--muted);">NO DETECTED SUPPORTERS</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 5: BUMP TRACKER -->
-    <div id="tab-bumping" class="tab-pane">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">⊘ disboard 2h countdown</div>
+    <!-- PANE 5: SNAPSHOTS -->
+    <section id="pane-snapshots" class="pane">
+      <div class="panel-block">
+        <div class="panel-header">
+          <div class="panel-headline">SERVER STRUCTURE BACKUP VAULT</div>
+          <button class="ctrl-btn armed" onclick="createSnapshotWeb()">+ CREATE STRUCTURE SNAPSHOT</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>LABEL</th>
+              <th>ROLES</th>
+              <th>CHANNELS</th>
+              <th>CATEGORIES</th>
+              <th>DATE</th>
+              <th>EXPORT</th>
+            </tr>
+          </thead>
+          <tbody id="snapshotsBody">
+            <tr><td colspan="7" style="text-align: center; color: var(--muted);">LOADING BACKUP VAULT...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PANE 6: DISBOARD -->
+    <section id="pane-bumping" class="pane">
+      <div class="grid-duo">
+        <div class="panel-block">
+          <div class="panel-header">
+            <div class="panel-headline">2-HOUR CADENCE COUNTER</div>
           </div>
-          <div style="text-align: center; padding: 24px 0;">
-            <div style="font-size: 32px; font-weight: 700; font-family: var(--mono); margin-bottom: 8px;" id="bumpTimerVal">--:--:--</div>
-            <div style="font-size: 12px; color: var(--muted); font-family: var(--mono);" id="bumpStatusDesc">calculating next bump slot...</div>
+          <div style="text-align: center; padding: 28px 10px;">
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 6px;">NEXT DISBOARD WINDOW OPENS IN</div>
+            <div id="bumpCountdown" style="font-family: var(--mono); font-size: 38px; font-weight: 700; color: #fff;">00:00:00</div>
+            <div id="bumpStatusNotice" style="font-family: var(--mono); font-size: 11px; color: var(--mint); margin-top: 8px;">WINDOW READY</div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">◈ top bumpers leaderboard</div>
+        <div class="panel-block">
+          <div class="panel-header">
+            <div class="panel-headline">SERVER BUMP LEADERBOARD</div>
           </div>
-          <table>
-            <thead><tr><th>rank</th><th>member</th><th>bumps</th></tr></thead>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>RANK</th>
+                <th>BUMPER</th>
+                <th>SUCCESSFUL BUMPS</th>
+              </tr>
+            </thead>
             <tbody id="bumpLeaderboardBody">
-              <tr><td colspan="3" style="color: var(--muted);">loading leaderboard...</td></tr>
+              <tr><td colspan="3" style="text-align: center; color: var(--muted);">NO BUMPS LOGGED</td></tr>
             </tbody>
           </table>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 6: SYSTEM & LOGS -->
-    <div id="tab-system" class="tab-pane">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">† live terminal log stream</div>
-          <button class="btn" onclick="fetchLogs()">refresh logs</button>
+    <!-- PANE 7: CONSOLE LOGS -->
+    <section id="pane-system" class="pane">
+      <div class="panel-block">
+        <div class="panel-header">
+          <div class="panel-headline">DAEMON CONSOLE TELEMETRY STREAM</div>
+          <button class="ctrl-btn" onclick="fetchLogs()">FETCH RAW LOG</button>
         </div>
-        <div class="terminal-box" id="terminalLogs">loading output stream...</div>
+        <div class="screen-box" id="terminalScreen">INITIALIZING TERMINAL BUFFER...</div>
       </div>
-    </div>
-
+    </section>
   </div>
 
   <script>
     let currentGuildId = "";
+    let cachedWords = [];
     let passkey = localStorage.getItem("kyomi_passkey") || "";
 
     function authHeaders() {
       return { "X-Passkey": passkey, "Content-Type": "application/json" };
     }
 
-    function switchTab(tabId) {
-      document.querySelectorAll(".tab-pane").forEach(el => el.classList.remove("active"));
-      document.querySelectorAll(".tab-btn").forEach(el => el.classList.remove("active"));
-      const target = document.getElementById("tab-" + tabId);
-      if (target) target.classList.add("active");
-      event.currentTarget.classList.add("active");
+    function showBanner(msg, isError = false) {
+      const b = document.getElementById("actionBanner");
+      b.textContent = msg;
+      b.style.borderColor = isError ? "var(--accent-bright)" : "var(--border-bright)";
+      b.style.display = "block";
+      setTimeout(() => { b.style.display = "none"; }, 3200);
+    }
 
-      if (tabId === "tickets") loadTickets();
-      if (tabId === "snapshots") loadSnapshots();
-      if (tabId === "bumping") loadBumpData();
-      if (tabId === "system") fetchLogs();
+    function switchPane(paneId, ev) {
+      document.querySelectorAll(".pane").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".rack-tab").forEach(el => el.classList.remove("active"));
+      const target = document.getElementById("pane-" + paneId);
+      if (target) target.classList.add("active");
+      if (ev && ev.currentTarget) ev.currentTarget.classList.add("active");
+
+      if (paneId === "tickets") loadTickets();
+      if (paneId === "vanity") loadVanity();
+      if (paneId === "snapshots") loadSnapshots();
+      if (paneId === "bumping") loadBumpData();
+      if (paneId === "system") fetchLogs();
     }
 
     async function checkAuth() {
@@ -548,48 +846,36 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         } else {
           document.getElementById("authOverlay").style.display = "none";
           const data = await res.json();
-          renderGuilds(data.guilds || []);
-          fetchVitals();
+          renderGuildSelect(data.guilds || []);
+          startTelemetryLoop();
         }
       } catch (e) {
-        console.error(e);
+        console.error("Auth check failed:", e);
       }
     }
 
-    function verifyPasskey() {
-      passkey = document.getElementById("passkeyInput").value.trim();
-      localStorage.setItem("kyomi_passkey", passkey);
-      checkAuth();
+    async function verifyPasskey() {
+      const val = document.getElementById("passkeyInput").value.trim();
+      passkey = val;
+      localStorage.setItem("kyomi_passkey", val);
+      await checkAuth();
     }
 
-    function renderGuilds(guilds) {
-      const select = document.getElementById("guildSelect");
-      select.innerHTML = "";
-      if (guilds.length === 0) {
-        select.innerHTML = "<option>no guilds found</option>";
+    function renderGuildSelect(guilds) {
+      const sel = document.getElementById("guildSelect");
+      sel.innerHTML = "";
+      if (!guilds || guilds.length === 0) {
+        sel.innerHTML = '<option value="">NO CLUSTERS ATTACHED</option>';
         return;
       }
-      guilds.forEach(g => {
+      guilds.forEach((g, i) => {
         const opt = document.createElement("option");
         opt.value = g.id;
-        opt.textContent = `${g.name} (${g.member_count} members)`;
-        select.appendChild(opt);
+        opt.textContent = `${g.name} (${g.id})`;
+        if (i === 0) opt.selected = true;
+        sel.appendChild(opt);
       });
-      currentGuildId = guilds[0].id;
       loadGuildData();
-    }
-
-    async function fetchVitals() {
-      try {
-        const res = await fetch("/api/vitals", { headers: authHeaders() });
-        if (res.ok) {
-          const v = await res.json();
-          document.getElementById("vitalPing").textContent = `${v.ping} ms`;
-          document.getElementById("vitalUptime").textContent = v.uptime;
-          document.getElementById("vitalMembers").textContent = v.members_cached;
-          document.getElementById("vitalDbSize").textContent = `${v.db_size_kb} KB`;
-        }
-      } catch (e) {}
     }
 
     async function loadGuildData() {
@@ -600,253 +886,369 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const res = await fetch(`/api/guild/${currentGuildId}`, { headers: authHeaders() });
         if (!res.ok) return;
         const data = await res.json();
-
-        // Switches
         const s = data.settings || {};
-        document.getElementById("sw_automod").checked = s.automod_enabled !== 0;
-        document.getElementById("sw_antispam").checked = s.anti_spam_enabled !== 0;
-        document.getElementById("sw_ghostping").checked = s.ghostping_enabled !== 0;
-        document.getElementById("sw_scam").checked = s.scam_guard_enabled !== 0;
-        document.getElementById("sw_invites").checked = s.block_invites_enabled !== 0;
-        document.getElementById("sw_links").checked = s.block_links_enabled !== 0;
-        document.getElementById("sw_antiraid").checked = s.antiraid_enabled !== 0;
 
-        // Words
+        setRockerState("rocker_automod", s.automod_enabled !== 0);
+        setRockerState("rocker_antispam", s.anti_spam_enabled !== 0);
+        setRockerState("rocker_antiraid", s.antiraid_enabled !== 0);
+        setRockerState("rocker_ghostping", s.ghostping_enabled !== 0);
+        setRockerState("rocker_invites", s.block_invites !== 0);
+        setRockerState("rocker_links", s.block_links !== 0);
+        setRockerState("rocker_vanity", s.vanity_enabled === 1);
+
         renderWords(data.words || []);
-
-        // Cases
-        renderCases(data.cases || []);
+        renderModCases(data.cases || []);
       } catch (e) {
         console.error(e);
       }
     }
 
+    function setRockerState(rockerId, isArmed) {
+      const el = document.getElementById(rockerId);
+      if (el) el.setAttribute("data-state", isArmed ? "on" : "off");
+    }
+
+    async function toggleRocker(settingKey, el) {
+      const currentState = el.getAttribute("data-state") === "on";
+      const nextVal = currentState ? 0 : 1;
+      el.setAttribute("data-state", nextVal ? "on" : "off");
+
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: settingKey, value: nextVal })
+        });
+        if (res.ok) showBanner(`SETTING UPDATED: ${settingKey} -> ${nextVal ? 'ARMED' : 'DISABLED'}`);
+      } catch (e) {
+        showBanner("FAILED TO PERSIST SETTING", true);
+      }
+    }
+
     function renderWords(words) {
-      const cloud = document.getElementById("wordCloud");
-      cloud.innerHTML = "";
-      if (words.length === 0) {
-        cloud.innerHTML = "<div style='font-size: 11px; color: var(--muted);'>no blocked words.</div>";
+      cachedWords = words;
+      const matrix = document.getElementById("wordMatrix");
+      matrix.innerHTML = "";
+      if (!words || words.length === 0) {
+        matrix.innerHTML = '<span class="chip">NO PATTERNS ARMED</span>';
         return;
       }
       words.forEach(w => {
-        const chip = document.createElement("div");
-        chip.className = "word-chip";
-        chip.innerHTML = `<span>${w}</span><span class="word-del" onclick="deleteWord('${w}')">×</span>`;
-        cloud.appendChild(chip);
+        const unit = document.createElement("div");
+        unit.className = "word-unit";
+        unit.innerHTML = `<span>${escapeHtml(w)}</span><span class="word-x" onclick="deleteWord('${escapeHtml(w)}')">&times;</span>`;
+        matrix.appendChild(unit);
       });
     }
 
-    function renderCases(cases) {
-      const tbody = document.querySelector("#modCasesTable tbody");
+    async function addFilterWord() {
+      const inp = document.getElementById("newWordInput");
+      const word = inp.value.trim();
+      if (!word) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/words`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ action: "add", word })
+        });
+        if (res.ok) {
+          inp.value = "";
+          showBanner(`ARMED FILTER PATTERN: ${word}`);
+          loadGuildData();
+        }
+      } catch (e) { showBanner("WORD REGISTRATION FAILED", true); }
+    }
+
+    async function deleteWord(word) {
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/words`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ action: "remove", word })
+        });
+        if (res.ok) {
+          showBanner(`PURGED PATTERN: ${word}`);
+          loadGuildData();
+        }
+      } catch (e) { showBanner("WORD REMOVAL FAILED", true); }
+    }
+
+    function renderModCases(cases) {
+      const tbody = document.getElementById("modCasesBody");
       tbody.innerHTML = "";
-      if (cases.length === 0) {
-        tbody.innerHTML = "<tr><td colspan='3' style='color: var(--muted);'>no recent mod cases.</td></tr>";
+      if (!cases || cases.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--muted); text-align: center;">NO RECENT INFRACTIONS</td></tr>';
         return;
       }
       cases.forEach(c => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><span class="tag">${c.action.toLowerCase()}</span></td>
-          <td><span style="color: #fff;">${c.target_id}</span></td>
-          <td style="color: var(--muted);">${c.reason || 'n/a'}</td>
+          <td>#${c.id}</td>
+          <td><span class="chip red">${c.action.toUpperCase()}</span></td>
+          <td>${c.target_id}</td>
+          <td>${escapeHtml(c.reason || 'NONE RECORDED')}</td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    async function toggleSetting(column, value) {
-      await fetch(`/api/guild/${currentGuildId}/setting`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ column, value: value ? 1 : 0 })
-      });
+    async function startTelemetryLoop() {
+      const poll = async () => {
+        try {
+          const res = await fetch("/api/vitals", { headers: authHeaders() });
+          if (res.ok) {
+            const v = await res.json();
+            document.getElementById("vital_ping").textContent = v.ping_ms + " ms";
+            document.getElementById("vital_uptime").textContent = v.uptime;
+            document.getElementById("vital_members").textContent = v.cached_members;
+            document.getElementById("vital_dbsize").textContent = v.db_size_kb + " KB";
+          }
+        } catch (e) {}
+      };
+      poll();
+      setInterval(poll, 8000);
     }
 
-    async function addWord() {
-      const inp = document.getElementById("newWordInput");
-      const word = inp.value.trim();
-      if (!word) return;
-      await fetch(`/api/guild/${currentGuildId}/words`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ action: "add", word })
-      });
-      inp.value = "";
-      loadGuildData();
-    }
-
-    async function deleteWord(word) {
-      await fetch(`/api/guild/${currentGuildId}/words`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ action: "remove", word })
-      });
-      loadGuildData();
-    }
-
-    /* TICKETS TAB */
+    // --- TICKETS ---
     async function loadTickets() {
       if (!currentGuildId) return;
+      const tbody = document.getElementById("ticketsBody");
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/tickets`, { headers: authHeaders() });
-        if (!res.ok) return;
-        const data = await res.json();
-        const tbody = document.getElementById("ticketsTableBody");
+        const list = await res.json();
         tbody.innerHTML = "";
-
-        const tickets = data.tickets || [];
-        document.getElementById("ticketCountBadge").textContent = tickets.filter(t => t.status === "open").length;
-
-        if (tickets.length === 0) {
-          tbody.innerHTML = "<tr><td colspan='6' style='color: var(--muted);'>no tickets recorded.</td></tr>";
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">NO ACTIVE ROOMS LOGGED</td></tr>';
           return;
         }
-
-        tickets.forEach(t => {
+        list.forEach(t => {
           const tr = document.createElement("tr");
+          const stateColor = t.status === "open" ? "green" : (t.status === "archived" ? "amber" : "");
           tr.innerHTML = `
-            <td>#${String(t.id).padStart(3, '0')}</td>
-            <td><code>${t.category}</code></td>
-            <td>${t.owner_name} <span style="color: var(--muted);">(${t.owner_id})</span></td>
-            <td><span class="tag ${t.status}">${t.status}</span></td>
-            <td style="color: var(--muted);">${t.created_at || 'n/a'}</td>
+            <td>#${t.id}</td>
+            <td><code>${escapeHtml(t.channel_name || t.channel_id)}</code></td>
+            <td>${escapeHtml(t.owner_name || t.owner_id)}</td>
+            <td><span class="chip">${escapeHtml(t.category)}</span></td>
+            <td><span class="chip ${stateColor}">${t.status.toUpperCase()}</span></td>
+            <td>${t.created_at ? t.created_at.slice(0, 16) : '--'}</td>
             <td>
-              ${t.status !== 'closed' ? `<button class="btn danger" style="padding: 3px 8px; font-size: 10px;" onclick="closeTicket(${t.channel_id})">close</button>` : '<span style="color: var(--muted);">archived</span>'}
+              ${t.status !== 'closed' ? `<button class="ctrl-btn" style="padding: 3px 8px;" onclick="closeTicketRemote(${t.channel_id})">TERMINATE</button>` : '--'}
             </td>
           `;
           tbody.appendChild(tr);
         });
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">TICKETS TELEMETRY OFFLINE</td></tr>';
+      }
     }
 
-    async function closeTicket(channelId) {
-      if (!confirm("Are you sure you want to close this ticket?")) return;
-      await fetch(`/api/guild/${currentGuildId}/ticket/close`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ channel_id: channelId })
-      });
-      loadTickets();
+    async function closeTicketRemote(channelId) {
+      if (!confirm("TERMINATE TICKET ROOM AND SAVE AUDIT LOG?")) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/ticket/close`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ channel_id: channelId })
+        });
+        if (res.ok) {
+          showBanner("TICKET TERMINATION COMMENCED");
+          loadTickets();
+        }
+      } catch (e) { showBanner("REMOTE TERMINATION FAILED", true); }
     }
 
-    /* DOSSIER TAB */
-    let currentDossierTargetId = "";
-    async function lookupDossier() {
-      const q = document.getElementById("dossierSearchInput").value.trim();
-      if (!q) return;
-
+    // --- DOSSIER ---
+    let currentDossierUserId = null;
+    async function searchDossier() {
+      const q = document.getElementById("dossierQuery").value.trim();
+      if (!q || !currentGuildId) return;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/dossier?query=${encodeURIComponent(q)}`, { headers: authHeaders() });
-        if (!res.ok) {
-          alert("Member not found.");
-          return;
-        }
-        const d = await res.json();
-        currentDossierTargetId = d.id;
+        if (!res.ok) return showBanner("MEMBER RECORD NOT FOUND", true);
+        const data = await res.json();
+        currentDossierUserId = data.user_id;
 
+        document.getElementById("dos_name").textContent = data.name;
+        document.getElementById("dos_id").textContent = `ID: ${data.user_id}`;
+        document.getElementById("dos_avatar").src = data.avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png";
+        document.getElementById("dos_standing").textContent = (data.standing || "CLEAN").toUpperCase();
+        document.getElementById("dos_standing").className = "chip " + (data.standing === "trusted" ? "green" : (data.standing === "flagged" ? "red" : "amber"));
+        document.getElementById("dos_joined").textContent = data.joined_at || "--";
+        document.getElementById("dos_created").textContent = data.created_at || "--";
+        document.getElementById("dos_strikes").textContent = data.strikes || 0;
+
+        renderDossierNotes(data.notes || []);
         document.getElementById("dossierResult").style.display = "block";
-        document.getElementById("dossierAvatar").src = d.avatar_url;
-        document.getElementById("dossierName").textContent = d.name;
-        document.getElementById("dossierMeta").textContent = `id: ${d.id} · created: ${d.created_at} · joined: ${d.joined_at}`;
-        document.getElementById("dossierStanding").textContent = `${d.standing} (${d.trust_score}% trust)`;
-
-        // Strikes
-        const strikesDiv = document.getElementById("dossierStrikes");
-        if (d.warnings.length === 0) {
-          strikesDiv.textContent = "clean record — zero strikes.";
-        } else {
-          strikesDiv.innerHTML = d.warnings.map(w => `<div>╰ strike #${w.id}: ${w.reason}</div>`).join("");
-        }
-
-        // Notes
-        renderDossierNotes(d.notes || []);
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { showBanner("DOSSIER LOOKUP FAILED", true); }
     }
 
     function renderDossierNotes(notes) {
-      const list = document.getElementById("dossierNotesList");
-      if (notes.length === 0) {
-        list.innerHTML = "<div style='color: var(--muted);'>no staff notes recorded.</div>";
+      const container = document.getElementById("dos_notes_list");
+      container.innerHTML = "";
+      if (!notes || notes.length === 0) {
+        container.innerHTML = '<div style="color: var(--muted); font-family: var(--mono); font-size: 11px;">NO STAFF OBSERVATIONS RECORDED</div>';
         return;
       }
-      list.innerHTML = notes.map(n => `
-        <div style="padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.03); display: flex; justify-content: space-between;">
-          <span>╰ ${n.note}</span>
-          <span style="color: var(--muted); cursor: pointer;" onclick="deleteDossierNote(${n.id})">×</span>
-        </div>
-      `).join("");
+      notes.forEach(n => {
+        const item = document.createElement("div");
+        item.style.padding = "6px 0";
+        item.style.borderBottom = "1px solid rgba(255,255,255,0.025)";
+        item.innerHTML = `
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono);">
+            <span>BY: ${n.author_id}</span>
+            <span>${n.created_at}</span>
+          </div>
+          <div style="font-size: 12px; color: #fff; margin-top: 2px;">${escapeHtml(n.note)}</div>
+        `;
+        container.appendChild(item);
+      });
     }
 
     async function addDossierNote() {
-      const inp = document.getElementById("newNoteInput");
+      const inp = document.getElementById("dos_note_input");
       const note = inp.value.trim();
-      if (!note || !currentDossierTargetId) return;
-
-      await fetch(`/api/guild/${currentGuildId}/dossier/note`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ action: "add", user_id: currentDossierTargetId, note })
-      });
-      inp.value = "";
-      lookupDossier();
+      if (!note || !currentDossierUserId) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/dossier/note`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ user_id: currentDossierUserId, note })
+        });
+        if (res.ok) {
+          inp.value = "";
+          showBanner("STAFF OBSERVATION LOGGED");
+          searchDossier();
+        }
+      } catch (e) { showBanner("NOTE RECORDING FAILED", true); }
     }
 
-    async function deleteDossierNote(noteId) {
-      await fetch(`/api/guild/${currentGuildId}/dossier/note`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ action: "delete", note_id: noteId })
-      });
-      lookupDossier();
-    }
-
-    /* SNAPSHOTS TAB */
-    async function loadSnapshots() {
+    // --- VANITY TRACKER ---
+    async function loadVanity() {
       if (!currentGuildId) return;
       try {
-        const res = await fetch(`/api/guild/${currentGuildId}/snapshots`, { headers: authHeaders() });
+        const res = await fetch(`/api/guild/${currentGuildId}/vanity`, { headers: authHeaders() });
         if (!res.ok) return;
-        const data = await res.json();
-        const tbody = document.getElementById("snapshotsTableBody");
-        tbody.innerHTML = "";
+        const v = await res.json();
 
-        const snaps = data.snapshots || [];
-        if (snaps.length === 0) {
-          tbody.innerHTML = "<tr><td colspan='6' style='color: var(--muted);'>no snapshots created yet.</td></tr>";
+        setRockerState("rocker_vanity", v.enabled);
+        const chip = document.getElementById("vnt_status_chip");
+        chip.textContent = v.enabled ? "TRACKER LIVE" : "DISABLED";
+        chip.className = "chip " + (v.enabled ? "green" : "");
+
+        document.getElementById("vnt_phrase_input").value = v.phrase || ".gg/303";
+        document.getElementById("vnt_role_input").value = v.role_id || "";
+        document.getElementById("vnt_count_chip").textContent = `${v.count} SUPPORTERS`;
+
+        const tbody = document.getElementById("vnt_supporters_body");
+        tbody.innerHTML = "";
+        if (!v.supporters || v.supporters.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted);">NO DETECTED SUPPORTERS</td></tr>';
           return;
         }
-
-        snaps.forEach(s => {
+        v.supporters.forEach(s => {
           const tr = document.createElement("tr");
+          const dateStr = s.detected_at ? new Date(s.detected_at * 1000).toISOString().slice(0, 16) : '--';
           tr.innerHTML = `
-            <td>#${String(s.id).padStart(3, '0')}</td>
-            <td><strong>${s.label}</strong></td>
-            <td>${s.channels_count}</td>
-            <td>${s.roles_count}</td>
-            <td style="color: var(--muted);">${s.created_at}</td>
-            <td>
-              <a href="/api/snapshots/${s.id}/download?key=${encodeURIComponent(passkey)}" class="btn" style="padding: 3px 8px; font-size: 10px; text-decoration: none;">download json</a>
-            </td>
+            <td><code>${escapeHtml(s.name)}</code> (${s.user_id})</td>
+            <td><code>${escapeHtml(s.status_text || '--')}</code></td>
+            <td>${dateStr}</td>
           `;
           tbody.appendChild(tr);
         });
       } catch (e) { console.error(e); }
     }
 
-    async function createWebSnapshot() {
-      const label = prompt("Enter a label for this backup:", "web console backup");
-      if (!label) return;
-      await fetch(`/api/guild/${currentGuildId}/snapshots/create`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({ label })
-      });
-      loadSnapshots();
+    async function saveVanityPhrase() {
+      const phrase = document.getElementById("vnt_phrase_input").value.trim();
+      if (!phrase) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: "vanity_phrase", value: phrase })
+        });
+        if (res.ok) showBanner(`ARMED VANITY PHRASE: ${phrase}`);
+      } catch (e) { showBanner("PHRASE SAVE FAILED", true); }
     }
 
-    /* BUMP TAB */
+    async function saveVanityRole() {
+      const roleId = document.getElementById("vnt_role_input").value.trim();
+      if (!roleId) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: "vanity_role_id", value: parseInt(roleId) })
+        });
+        if (res.ok) showBanner(`LINKED SUPPORTER ROLE: ${roleId}`);
+      } catch (e) { showBanner("ROLE SAVE FAILED", true); }
+    }
+
+    async function triggerVanityScan() {
+      showBanner("SCANNING GUILD MEMBERS...");
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/vanity/scan`, {
+          method: "POST",
+          headers: authHeaders()
+        });
+        if (res.ok) {
+          const r = await res.json();
+          showBanner(`SCAN COMPLETE: ${r.scanned} SCANNED, ${r.awarded} AWARDED, ${r.revoked} REVOKED`);
+          loadVanity();
+        } else {
+          showBanner("SCAN EXECUTION FAILED", true);
+        }
+      } catch (e) { showBanner("SCAN DISPATCH FAILED", true); }
+    }
+
+    // --- SNAPSHOTS ---
+    async function loadSnapshots() {
+      if (!currentGuildId) return;
+      const tbody = document.getElementById("snapshotsBody");
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/snapshots`, { headers: authHeaders() });
+        const list = await res.json();
+        tbody.innerHTML = "";
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">NO SNAPSHOTS IN VAULT</td></tr>';
+          return;
+        }
+        list.forEach(s => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>#${s.id}</td>
+            <td><code>${escapeHtml(s.label)}</code></td>
+            <td>${s.roles_count}</td>
+            <td>${s.channels_count}</td>
+            <td>${s.categories_count}</td>
+            <td>${s.created_at}</td>
+            <td>
+              <a href="/api/snapshots/${s.id}/download?key=${encodeURIComponent(passkey)}" class="ctrl-btn" style="padding: 3px 8px; text-decoration: none;">EXPORT JSON</a>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">SNAPSHOT VAULT OFFLINE</td></tr>'; }
+    }
+
+    async function createSnapshotWeb() {
+      const label = prompt("ENTER STRUCTURE SNAPSHOT LABEL:", "web-checkpoint");
+      if (!label) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/snapshots/create`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ label })
+        });
+        if (res.ok) {
+          showBanner("SNAPSHOT SECURED IN VAULT");
+          loadSnapshots();
+        }
+      } catch (e) { showBanner("CREATION FAILED", true); }
+    }
+
+    // --- BUMP DATA ---
+    let bumpTimerInterval = null;
     async function loadBumpData() {
       if (!currentGuildId) return;
       try {
@@ -854,57 +1256,65 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (!res.ok) return;
         const d = await res.json();
 
-        const timerEl = document.getElementById("bumpTimerVal");
-        const descEl = document.getElementById("bumpStatusDesc");
+        let rem = d.remaining_seconds || 0;
+        const renderTimer = () => {
+          if (rem <= 0) {
+            document.getElementById("bumpCountdown").textContent = "READY";
+            document.getElementById("bumpCountdown").style.color = "var(--mint)";
+            document.getElementById("bumpStatusNotice").textContent = "DISBOARD CADENCE READY TO FIRE";
+          } else {
+            const h = Math.floor(rem / 3600);
+            const m = Math.floor((rem % 3600) / 60);
+            const s = rem % 60;
+            document.getElementById("bumpCountdown").textContent =
+              `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            document.getElementById("bumpCountdown").style.color = "#fff";
+            document.getElementById("bumpStatusNotice").textContent = "WINDOW LOCKED IN 2H CADENCE";
+            rem--;
+          }
+        };
+        clearInterval(bumpTimerInterval);
+        renderTimer();
+        bumpTimerInterval = setInterval(renderTimer, 1000);
 
-        if (d.remaining_seconds <= 0) {
-          timerEl.textContent = "READY";
-          timerEl.style.color = "var(--mint)";
-          descEl.textContent = "disboard bump is available right now in your server!";
-        } else {
-          timerEl.style.color = "#fff";
-          const m = Math.floor(d.remaining_seconds / 60);
-          const s = d.remaining_seconds % 60;
-          timerEl.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-          descEl.textContent = "2h cooldown in progress before next bump reminder";
-        }
-
-        // Leaderboard
         const tbody = document.getElementById("bumpLeaderboardBody");
         tbody.innerHTML = "";
-        const lb = d.leaderboard || [];
-        if (lb.length === 0) {
-          tbody.innerHTML = "<tr><td colspan='3' style='color: var(--muted);'>no bump stats yet.</td></tr>";
+        if (!d.leaderboard || d.leaderboard.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted);">NO BUMPS LOGGED</td></tr>';
           return;
         }
-        lb.forEach((row, i) => {
+        d.leaderboard.forEach((r, idx) => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>#${i + 1}</td>
-            <td>${row.name} <span style="color: var(--muted);">(${row.user_id})</span></td>
-            <td><strong>${row.bump_count}</strong> bumps</td>
+            <td><code>#${idx+1}</code></td>
+            <td>${escapeHtml(r.name)}</td>
+            <td><strong>${r.bump_count}</strong></td>
           `;
           tbody.appendChild(tr);
         });
       } catch (e) { console.error(e); }
     }
 
-    /* SYSTEM TAB */
+    // --- LOGS ---
     async function fetchLogs() {
+      const scr = document.getElementById("terminalScreen");
       try {
         const res = await fetch("/logs", { headers: authHeaders() });
-        const text = await res.text();
-        document.getElementById("terminalLogs").textContent = text;
-      } catch (e) {
-        document.getElementById("terminalLogs").textContent = "failed to load logs.";
-      }
+        if (res.ok) {
+          scr.textContent = await res.text();
+          scr.scrollTop = scr.scrollHeight;
+        }
+      } catch (e) { scr.textContent = "LOG STREAM CONNECTION FAILED"; }
     }
 
-    // Auto-refresh vitals every 10 seconds
-    setInterval(fetchVitals, 10000);
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
-    // Initial check
-    checkAuth();
+    window.addEventListener("DOMContentLoaded", () => {
+      checkAuth();
+    });
   </script>
 </body>
 </html>
@@ -912,7 +1322,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 
 class WebDashboard:
-    """Enterprise embedded web dashboard for 303 KYOMI with 5 integrated control modules."""
+    """Tactical operator console for 303 KYOMI with 6 integrated telemetry modules."""
 
     def __init__(self, bot: discord.Client, db, port: int = 3030):
         self.bot = bot
@@ -937,61 +1347,78 @@ class WebDashboard:
         return web.json_response(
             {
                 "status": "online",
-                "bot": str(self.bot.user) if self.bot.user else "starting",
+                "bot_ready": self.bot.is_ready(),
                 "guilds": len(self.bot.guilds),
-                "has_token": bool(os.getenv("DISCORD_TOKEN")),
-                "token_len": len(os.getenv("DISCORD_TOKEN") or ""),
-                "last_error": getattr(bot_module, "last_bot_error", "none"),
-                "retries": getattr(bot_module, "retry_count", 0),
+                "retry_count": getattr(bot_module, "retry_count", 0),
+                "last_bot_error": getattr(bot_module, "last_bot_error", "none"),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
         )
 
     async def handle_logs(self, request: web.Request) -> web.Response:
-        log_file = "bot.log"
-        content = ""
-        if os.path.exists(log_file):
-            try:
-                with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
-                    content = f.read()[-8000:]
-            except Exception as e:
-                content = str(e)
-        return web.Response(text=content or "no logs yet", content_type="text/plain")
+        if not self._authorized(request):
+            return web.Response(text="unauthorized", status=401)
+
+        log_candidates = [
+            "bot.log",
+            "data/bot.log",
+            "app.log",
+            "/home/container/bot.log",
+        ]
+        log_content = ""
+        for path in log_candidates:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8", errors="replace") as f:
+                        lines = f.readlines()
+                        log_content = "".join(lines[-150:])
+                        break
+                except Exception:
+                    pass
+
+        if not log_content:
+            log_content = (
+                f"[SYSTEM STATUS: ONLINE]\n"
+                f"Bot User: {self.bot.user}\n"
+                f"Gateway WS Ping: {round(self.bot.latency * 1000, 1)}ms\n"
+                f"Guilds Attached: {len(self.bot.guilds)}\n"
+                f"Database Engine: SQLite (moderation.db)\n"
+                f"No persistent logfile on disk yet. Active gateway sessions operational."
+            )
+
+        return web.Response(text=log_content, content_type="text/plain")
 
     async def handle_vitals(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
 
-        ping_ms = round(self.bot.latency * 1000) if self.bot.latency else 0
+        ping = round(self.bot.latency * 1000, 1) if self.bot.latency else 0
         now = datetime.datetime.now(datetime.timezone.utc)
-        start_t = getattr(self.bot, "start_time", now)
-        delta = now - start_t
-        days = delta.days
-        hours, remainder = divmod(delta.seconds, 3600)
-        minutes, _ = divmod(remainder, 60)
-        uptime_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
+        start_time = getattr(self.bot, "start_time", now)
+        diff = now - start_time
+        days = diff.days
+        hours, rem = divmod(diff.seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        uptime_str = f"{days}d {hours}h {minutes}m" if days else f"{hours}h {minutes}m {seconds}s"
 
         total_members = sum(g.member_count or 0 for g in self.bot.guilds)
         db_path = getattr(self.db, "db_path", "data/moderation.db")
-        db_size_kb = round(os.path.getsize(db_path) / 1024, 1) if os.path.exists(db_path) else 0
+        db_size_kb = 0
+        if os.path.exists(db_path):
+            db_size_kb = round(os.path.getsize(db_path) / 1024, 1)
 
-        return web.json_response(
-            {
-                "ping": ping_ms,
-                "uptime": uptime_str,
-                "members_cached": total_members,
-                "db_size_kb": db_size_kb,
-            }
-        )
+        return web.json_response({
+            "ping_ms": ping,
+            "uptime": uptime_str,
+            "cached_members": total_members,
+            "db_size_kb": db_size_kb,
+        })
 
     async def handle_guilds(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guilds = [
-            {
-                "id": str(g.id),
-                "name": g.name,
-                "member_count": g.member_count or 0,
-            }
+            {"id": str(g.id), "name": g.name, "member_count": g.member_count}
             for g in self.bot.guilds
         ]
         return web.json_response({"guilds": guilds})
@@ -1002,119 +1429,124 @@ class WebDashboard:
         guild_id = int(request.match_info["guild_id"])
         settings = await self.db.get_guild_settings(guild_id)
         words = await self.db.get_bad_words(guild_id)
-
-        assert self.db.conn is not None
-        async with self.db.conn.execute(
-            "SELECT * FROM mod_cases WHERE guild_id = ? ORDER BY id DESC LIMIT 15",
-            (guild_id,),
-        ) as cursor:
-            rows = await cursor.fetchall()
-            cases = [dict(r) for r in rows]
-
-        return web.json_response(
-            {
-                "settings": settings,
-                "words": words,
-                "cases": cases,
-            }
-        )
+        cases = await self.db.get_recent_mod_cases(guild_id, limit=5)
+        return web.json_response({
+            "settings": settings,
+            "words": words,
+            "cases": cases,
+        })
 
     async def handle_update_setting(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
-        body = await request.json()
-        column = body.get("column")
-        value = body.get("value")
-        await self.db.update_guild_setting(guild_id, column, value)
-        return web.json_response({"ok": True})
+        data = await request.json()
+        key = data.get("key")
+        val = data.get("value")
+        await self.db.update_guild_setting(guild_id, key, val)
+        return web.json_response({"status": "ok", "key": key, "value": val})
 
     async def handle_words(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
-        body = await request.json()
-        action = body.get("action")
-        word = body.get("word", "").strip().lower()
+        data = await request.json()
+        action = data.get("action")
+        word = data.get("word")
         if action == "add" and word:
             await self.db.add_bad_word(guild_id, word)
         elif action == "remove" and word:
             await self.db.remove_bad_word(guild_id, word)
-        return web.json_response({"ok": True})
+        words = await self.db.get_bad_words(guild_id)
+        return web.json_response({"status": "ok", "words": words})
 
-    # --- 1. TICKETS MODULE ---
+    # --- 1. TICKETS ---
     async def handle_get_tickets(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
         guild = self.bot.get_guild(guild_id)
-
-        raw_tickets = await self.db.get_tickets_for_guild(guild_id)
+        raw_tickets = await self.db.get_tickets_for_guild(guild_id, limit=40)
         results = []
         for t in raw_tickets:
+            ch = guild.get_channel(t["channel_id"]) if guild else None
             owner = guild.get_member(t["owner_id"]) if guild else None
             results.append({
                 "id": t["id"],
                 "channel_id": t["channel_id"],
+                "channel_name": ch.name if ch else f"del-{t['channel_id']}",
                 "owner_id": t["owner_id"],
                 "owner_name": owner.name if owner else f"user_{t['owner_id']}",
                 "category": t["category"],
-                "claimed_by": t.get("claimed_by"),
                 "status": t.get("status", "open"),
-                "created_at": t.get("created_at", "n/a"),
+                "created_at": t.get("created_at"),
             })
-        return web.json_response({"tickets": results})
+        return web.json_response(results)
 
     async def handle_close_ticket(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
-        body = await request.json()
-        ch_id = body.get("channel_id")
-        if ch_id:
-            await self.db.close_ticket_record(ch_id)
-            ch = self.bot.get_channel(ch_id)
-            if ch:
-                try:
-                    await ch.delete(reason="closed via 303 web console")
-                except Exception:
-                    pass
-        return web.json_response({"ok": True})
+        guild_id = int(request.match_info["guild_id"])
+        data = await request.json()
+        channel_id = int(data.get("channel_id", 0))
+        guild = self.bot.get_guild(guild_id)
+        channel = guild.get_channel(channel_id) if guild else None
 
-    # --- 2. DOSSIER & NOTES MODULE ---
+        tickets_cog = self.bot.get_cog("Tickets")
+        if channel and tickets_cog:
+            from cogs.tickets import execute_close_sequence
+            asyncio.create_task(execute_close_sequence(self.bot, channel, self.bot.user, None))
+            return web.json_response({"status": "closing"})
+        else:
+            await self.db.close_ticket_record(channel_id)
+            return web.json_response({"status": "closed_db_only"})
+
+    # --- 2. DOSSIER ---
     async def handle_dossier(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
         query = request.query.get("query", "").strip()
-
         guild = self.bot.get_guild(guild_id)
-        if not guild or not query:
-            return web.json_response({"error": "invalid query"}, status=400)
+        if not guild:
+            return web.json_response({"error": "guild not found"}, status=404)
 
-        member: discord.Member | None = None
+        target: discord.Member | None = None
         if query.isdigit():
-            member = guild.get_member(int(query))
-        if not member:
-            member = discord.utils.get(guild.members, name=query)
+            target = guild.get_member(int(query))
+        if not target:
+            target = discord.utils.find(
+                lambda m: m.name.lower() == query.lower() or query.lower() in m.display_name.lower(),
+                guild.members
+            )
 
-        if not member:
-            return web.json_response({"error": "member not found"}, status=404)
+        if not target:
+            return web.json_response({"error": "member not found in cache"}, status=404)
 
-        from cogs.dossier import calculate_trust_score
-        warnings = await self.db.get_warnings(guild.id, member.id)
-        notes = await self.db.get_staff_notes(guild.id, member.id)
-        cases = await self.db.get_user_mod_cases(guild.id, member.id)
-        score, status_tag = calculate_trust_score(member, len(warnings), len(cases))
+        warns = await self.db.get_warnings(guild_id, target.id)
+        notes = await self.db.get_staff_notes(guild_id, target.id)
+
+        # Standing logic
+        days_on_discord = (datetime.datetime.now(datetime.timezone.utc) - target.created_at).days
+        warn_count = len(warns)
+        if warn_count >= 3:
+            standing = "flagged"
+        elif warn_count > 0:
+            standing = "watched"
+        elif days_on_discord > 365:
+            standing = "trusted"
+        else:
+            standing = "clean"
 
         return web.json_response({
-            "id": str(member.id),
-            "name": str(member),
-            "avatar_url": member.display_avatar.url,
-            "created_at": member.created_at.strftime("%Y-%m-%d"),
-            "joined_at": member.joined_at.strftime("%Y-%m-%d") if member.joined_at else "n/a",
-            "standing": status_tag,
-            "trust_score": score,
-            "warnings": warnings,
+            "user_id": target.id,
+            "name": target.name,
+            "display_name": target.display_name,
+            "avatar_url": target.display_avatar.url,
+            "joined_at": target.joined_at.strftime("%Y-%m-%d %H:%M") if target.joined_at else "unknown",
+            "created_at": target.created_at.strftime("%Y-%m-%d %H:%M"),
+            "standing": standing,
+            "strikes": warn_count,
             "notes": notes,
         })
 
@@ -1122,62 +1554,121 @@ class WebDashboard:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
-        body = await request.json()
-        action = body.get("action")
+        data = await request.json()
+        target_id = int(data.get("user_id"))
+        note_text = str(data.get("note", "")).strip()
+        if not note_text:
+            return web.json_response({"error": "empty note"}, status=400)
 
-        if action == "add":
-            user_id = int(body["user_id"])
-            note = body["note"].strip()
-            bot_author = self.bot.user.id if self.bot.user else 0
-            await self.db.add_staff_note(guild_id, user_id, bot_author, f"[web] {note}")
-        elif action == "delete":
-            note_id = int(body["note_id"])
-            await self.db.delete_staff_note(note_id)
+        author_id = self.bot.user.id if self.bot.user else 0
+        await self.db.add_staff_note(guild_id, target_id, author_id, f"[WEB OPERATOR] {note_text}")
+        return web.json_response({"status": "recorded"})
 
-        return web.json_response({"ok": True})
-
-    # --- 3. SNAPSHOTS MODULE ---
-    async def handle_get_snapshots(self, request: web.Request) -> web.Response:
+    # --- 3. VANITY TRACKER ---
+    async def handle_get_vanity(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
-        snaps = await self.db.get_snapshots(guild_id)
-        results = []
-        for s in snaps:
-            meta = json.loads(s.get("metadata_json") or "{}")
-            results.append({
-                "id": s["id"],
-                "label": s["label"],
-                "created_at": s["created_at"],
-                "channels_count": meta.get("channels_count", 0),
-                "roles_count": meta.get("roles_count", 0),
-            })
-        return web.json_response({"snapshots": results})
+        guild = self.bot.get_guild(guild_id)
+        settings = await self.db.get_guild_settings(guild_id)
+        supporters_raw = await self.db.get_vanity_supporters(guild_id)
 
-    async def handle_create_snapshot(self, request: web.Request) -> web.Response:
+        role_id = settings.get("vanity_role_id")
+        role = guild.get_role(role_id) if (guild and role_id) else None
+
+        supporters = []
+        for s in supporters_raw:
+            m = guild.get_member(s["user_id"]) if guild else None
+            supporters.append({
+                "user_id": s["user_id"],
+                "name": m.name if m else f"user_{s['user_id']}",
+                "status_text": s.get("status_text") or "",
+                "detected_at": s.get("detected_at") or 0,
+            })
+
+        return web.json_response({
+            "enabled": bool(settings.get("vanity_enabled")),
+            "phrase": settings.get("vanity_phrase") or ".gg/303",
+            "role_id": role_id,
+            "role_name": role.name if role else None,
+            "channel_id": settings.get("vanity_channel_id"),
+            "count": len(supporters),
+            "supporters": supporters,
+        })
+
+    async def handle_vanity_scan(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
         guild = self.bot.get_guild(guild_id)
         if not guild:
             return web.json_response({"error": "guild not found"}, status=404)
+        vanity_cog = self.bot.get_cog("Vanity")
+        if not vanity_cog:
+            return web.json_response({"error": "vanity cog not active"}, status=500)
 
-        body = await request.json()
-        label = body.get("label", "web backup")
+        settings = await self.db.get_guild_settings(guild_id)
+        awarded = 0
+        revoked = 0
+        total = 0
+        for m in guild.members:
+            if m.bot:
+                continue
+            total += 1
+            res = await vanity_cog._process_member_vanity(guild, m, settings=settings)
+            if res is True:
+                awarded += 1
+            elif res is False:
+                revoked += 1
+
+        return web.json_response({
+            "status": "ok",
+            "scanned": total,
+            "awarded": awarded,
+            "revoked": revoked,
+        })
+
+    # --- 4. SNAPSHOTS ---
+    async def handle_get_snapshots(self, request: web.Request) -> web.Response:
+        if not self._authorized(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        guild_id = int(request.match_info["guild_id"])
+        raw = await self.db.get_snapshots(guild_id)
+        results = []
+        for s in raw:
+            meta = json.loads(s.get("metadata_json", "{}"))
+            results.append({
+                "id": s["id"],
+                "label": s["label"],
+                "roles_count": meta.get("roles_count", 0),
+                "channels_count": meta.get("channels_count", 0),
+                "categories_count": meta.get("categories_count", 0),
+                "created_at": s.get("created_at"),
+            })
+        return web.json_response(results)
+
+    async def handle_create_snapshot(self, request: web.Request) -> web.Response:
+        if not self._authorized(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        guild_id = int(request.match_info["guild_id"])
+        data = await request.json()
+        label = str(data.get("label", "manual-web")).strip() or "manual-web"
+        guild = self.bot.get_guild(guild_id)
+        if not guild:
+            return web.json_response({"error": "guild not found"}, status=404)
 
         from cogs.snapshot import serialize_guild_structure
-        roles_data, channels_data, meta = serialize_guild_structure(guild)
-        bot_creator = self.bot.user.id if self.bot.user else 0
-
-        snap_id = await self.db.save_snapshot(
-            guild.id,
-            bot_creator,
-            label,
-            json.dumps(roles_data),
-            json.dumps(channels_data),
-            json.dumps(meta),
+        roles_json, channels_json, metadata_json = serialize_guild_structure(guild)
+        author_id = self.bot.user.id if self.bot.user else 0
+        snap_id = await self.db.create_snapshot(
+            guild_id=guild.id,
+            creator_id=author_id,
+            label=label,
+            roles_json=roles_json,
+            channels_json=channels_json,
+            metadata_json=metadata_json,
         )
-        return web.json_response({"ok": True, "snapshot_id": snap_id})
+        return web.json_response({"status": "created", "snapshot_id": snap_id})
 
     async def handle_download_snapshot(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
@@ -1203,7 +1694,7 @@ class WebDashboard:
         }
         return web.Response(text=json_str, headers=headers)
 
-    # --- 4. BUMP MODULE ---
+    # --- 5. BUMP MODULE ---
     async def handle_bump_data(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
@@ -1241,11 +1732,13 @@ class WebDashboard:
         app.router.add_post("/api/guild/{guild_id}/setting", self.handle_update_setting)
         app.router.add_post("/api/guild/{guild_id}/words", self.handle_words)
 
-        # 5 Modules Routes
+        # 6 Modules Routes
         app.router.add_get("/api/guild/{guild_id}/tickets", self.handle_get_tickets)
         app.router.add_post("/api/guild/{guild_id}/ticket/close", self.handle_close_ticket)
         app.router.add_get("/api/guild/{guild_id}/dossier", self.handle_dossier)
         app.router.add_post("/api/guild/{guild_id}/dossier/note", self.handle_dossier_note)
+        app.router.add_get("/api/guild/{guild_id}/vanity", self.handle_get_vanity)
+        app.router.add_post("/api/guild/{guild_id}/vanity/scan", self.handle_vanity_scan)
         app.router.add_get("/api/guild/{guild_id}/snapshots", self.handle_get_snapshots)
         app.router.add_post("/api/guild/{guild_id}/snapshots/create", self.handle_create_snapshot)
         app.router.add_get("/api/snapshots/{snapshot_id}/download", self.handle_download_snapshot)
@@ -1255,6 +1748,7 @@ class WebDashboard:
         await self.runner.setup()
         site = web.TCPSite(self.runner, "0.0.0.0", self.port)
         await site.start()
+        logger.info("303 KYOMI Operator Console live on port %s", self.port)
 
     async def stop(self) -> None:
         if self.runner:

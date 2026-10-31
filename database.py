@@ -117,6 +117,14 @@ class Database:
                 metadata_json TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS vanity_supporters (
+                guild_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                status_text TEXT,
+                detected_at INTEGER NOT NULL,
+                PRIMARY KEY (guild_id, user_id)
+            );
             """
         )
         migrations = [
@@ -127,6 +135,10 @@ class Database:
             "ALTER TABLE guild_settings ADD COLUMN antiraid_action TEXT DEFAULT 'kick'",
             "ALTER TABLE guild_settings ADD COLUMN ghostping_enabled INTEGER DEFAULT 1",
             "ALTER TABLE guild_settings ADD COLUMN scam_guard_enabled INTEGER DEFAULT 1",
+            "ALTER TABLE guild_settings ADD COLUMN vanity_enabled INTEGER DEFAULT 0",
+            "ALTER TABLE guild_settings ADD COLUMN vanity_phrase TEXT DEFAULT '.gg/303'",
+            "ALTER TABLE guild_settings ADD COLUMN vanity_role_id INTEGER",
+            "ALTER TABLE guild_settings ADD COLUMN vanity_channel_id INTEGER",
         ]
         for sql in migrations:
             try:
@@ -491,3 +503,49 @@ class Database:
         )
         await self.conn.commit()
         return cursor.rowcount > 0
+
+    # --- Vanity Status Tracker ---
+    async def add_vanity_supporter(
+        self, guild_id: int, user_id: int, status_text: str
+    ) -> None:
+        assert self.conn is not None
+        import time
+        now_ts = int(time.time())
+        await self.conn.execute(
+            """
+            INSERT INTO vanity_supporters (guild_id, user_id, status_text, detected_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(guild_id, user_id) DO UPDATE SET
+                status_text = excluded.status_text,
+                detected_at = excluded.detected_at
+            """,
+            (guild_id, user_id, status_text, now_ts),
+        )
+        await self.conn.commit()
+
+    async def remove_vanity_supporter(self, guild_id: int, user_id: int) -> bool:
+        assert self.conn is not None
+        cursor = await self.conn.execute(
+            "DELETE FROM vanity_supporters WHERE guild_id = ? AND user_id = ?",
+            (guild_id, user_id),
+        )
+        await self.conn.commit()
+        return cursor.rowcount > 0
+
+    async def get_vanity_supporters(self, guild_id: int) -> list[dict]:
+        assert self.conn is not None
+        async with self.conn.execute(
+            "SELECT * FROM vanity_supporters WHERE guild_id = ? ORDER BY detected_at DESC",
+            (guild_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
+    async def get_vanity_count(self, guild_id: int) -> int:
+        assert self.conn is not None
+        async with self.conn.execute(
+            "SELECT COUNT(*) FROM vanity_supporters WHERE guild_id = ?",
+            (guild_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0

@@ -49,6 +49,7 @@ COGS = [
     "cogs.bumping",
     "cogs.help_cog",
     "cogs.snapshot",
+    "cogs.vanity",
 ]
 
 
