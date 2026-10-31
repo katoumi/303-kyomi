@@ -424,7 +424,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="auth-box">
       <div class="auth-title">✦ 303 kyomi</div>
       <div class="auth-desc">enter passkey to unlock control panel</div>
-      <input type="password" id="passkeyInput" placeholder="passkey..." style="width: 100%; margin-bottom: 12px;">
+      <input type="password" id="passkeyInput" placeholder="passkey..." style="width: 100%; margin-bottom: 12px;" onkeydown="if(event.key==='Enter') verifyPasskey()">
       <button class="btn-dark crimson" style="width: 100%; justify-content: center;" onclick="verifyPasskey()">unlock</button>
     </div>
   </div>
@@ -449,6 +449,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <select class="guild-selector" id="guildSelect" onchange="loadGuildData()">
           <option value="">loading...</option>
         </select>
+        <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="lockDashboard()" title="lock session">× lock</button>
       </div>
     </header>
 
@@ -863,9 +864,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     async function verifyPasskey() {
       const val = document.getElementById("passkeyInput").value.trim();
+      if (!val) return;
       passkey = val;
       localStorage.setItem("kyomi_passkey", val);
-      await checkAuth();
+      try {
+        const res = await fetch("/api/guilds", { headers: authHeaders() });
+        if (res.status === 401) {
+          document.getElementById("authOverlay").style.display = "flex";
+          showBanner("invalid passkey", true);
+        } else {
+          document.getElementById("authOverlay").style.display = "none";
+          showBanner("access granted");
+          const data = await res.json();
+          renderGuildSelect(data.guilds || []);
+          startTelemetryLoop();
+        }
+      } catch (e) {
+        showBanner("connection error", true);
+      }
+    }
+
+    function lockDashboard() {
+      localStorage.removeItem("kyomi_passkey");
+      passkey = "";
+      document.getElementById("passkeyInput").value = "";
+      document.getElementById("authOverlay").style.display = "flex";
+      showBanner("dashboard locked");
     }
 
     function renderGuildSelect(guilds) {
@@ -1328,12 +1352,10 @@ class WebDashboard:
         self.db = db
         # Automatically detects Wispbyte/Pterodactyl SERVER_PORT
         self.port = int(os.getenv("PORT", os.getenv("SERVER_PORT", port)))
-        self.password = os.getenv("DASHBOARD_PASSWORD", "").strip()
+        self.password = os.getenv("DASHBOARD_PASSWORD", "303kyomi").strip() or "303kyomi"
         self.runner: web.AppRunner | None = None
 
     def _authorized(self, request: web.Request) -> bool:
-        if not self.password:
-            return True
         header_key = request.headers.get("X-Passkey", "")
         query_key = request.query.get("key", "")
         return (header_key == self.password) or (query_key == self.password)
