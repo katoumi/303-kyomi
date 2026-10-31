@@ -218,6 +218,15 @@ class Database:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
 
+    async def delete_staff_note(self, note_id: int) -> bool:
+        assert self.conn is not None
+        cursor = await self.conn.execute(
+            "DELETE FROM staff_notes WHERE id = ?",
+            (note_id,),
+        )
+        await self.conn.commit()
+        return cursor.rowcount > 0
+
     async def get_user_mod_cases(self, guild_id: int, target_id: int) -> list[dict]:
         assert self.conn is not None
         async with self.conn.execute(
@@ -228,6 +237,14 @@ class Database:
             return [dict(r) for r in rows]
 
     # --- Tickets Management ---
+    async def get_tickets_for_guild(self, guild_id: int, limit: int = 50) -> list[dict]:
+        assert self.conn is not None
+        async with self.conn.execute(
+            "SELECT * FROM tickets WHERE guild_id = ? ORDER BY id DESC LIMIT ?",
+            (guild_id, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
     async def create_ticket(
         self, guild_id: int, channel_id: int, owner_id: int, category: str
     ) -> int:

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import shutil
@@ -68,6 +69,7 @@ class ModBot(commands.Bot):
             help_command=None,
         )
         self.db = Database(db_path)
+        self.start_time = datetime.datetime.now(datetime.timezone.utc)
 
     async def setup_hook(self) -> None:
         for cog in COGS:
