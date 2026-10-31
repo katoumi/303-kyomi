@@ -10,6 +10,7 @@ from aiohttp import web
 import discord
 
 logger = logging.getLogger("mod-bot")
+logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
 DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
@@ -1029,7 +1030,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         } catch (e) {}
       };
       poll();
-      setInterval(poll, 8000);
+      setInterval(poll, 30000);
     }
 
     // --- TICKETS ---

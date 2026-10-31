@@ -86,13 +86,19 @@ class ModBot(commands.Bot):
     async def on_ready(self) -> None:
         assert self.user is not None
         logger.info("Logged in as %s (ID: %d)", self.user, self.user.id)
-        if not getattr(self, "_commands_synced", False):
+        
+        # Only sync commands if explicitly requested to prevent triggering Discord IP rate limits
+        should_sync = os.getenv("SYNC_ON_STARTUP", "false").lower() in ("true", "1", "yes")
+        if should_sync and not getattr(self, "_commands_synced", False):
             self._commands_synced = True
             try:
                 synced = await self.tree.sync()
                 logger.info("Synchronized %d global slash command(s).", len(synced))
             except Exception as exc:
                 logger.warning("Skipping startup tree.sync due to rate limit: %s", exc)
+        else:
+            logger.info("Using cached slash commands (skipped tree.sync on boot to respect Discord rate limits).")
+
         await self.change_presence(
             status=discord.Status.dnd,
             activity=discord.CustomActivity(name="303  •  watching"),
@@ -121,8 +127,8 @@ async def main() -> None:
     await dashboard.start()
     logger.info("Web Dashboard listening on port %d", dashboard.port)
 
-    # Connect to Discord with proper client reset if shared cloud IP is rate-limited (429)
-    retry_delay = 15
+    # Connect to Discord with gentle backoff if shared cloud IP is rate-limited (429)
+    retry_delay = 60
     global last_bot_error, retry_count
     while True:
         bot = ModBot(db_path=db_path)
@@ -139,19 +145,19 @@ async def main() -> None:
             last_bot_error = f"HTTPException {exc.status}: {exc.text or str(exc)}"
             if exc.status == 429:
                 logger.warning(
-                    "Discord shared-IP rate limit (429) encountered. Retrying in %ds while keeping Web Dashboard online...",
+                    "Discord IP rate limit (429) active on shared host. Gentle backoff %ds (Web Dashboard remains online)...",
                     retry_delay,
                 )
                 await asyncio.sleep(retry_delay)
-                retry_delay = min(retry_delay * 2, 180)
+                retry_delay = min(retry_delay * 2, 600)
             else:
                 logger.error("Discord HTTP error: %s", exc)
-                await asyncio.sleep(30)
+                await asyncio.sleep(60)
         except Exception as exc:
             retry_count += 1
             last_bot_error = f"{type(exc).__name__}: {exc}"
-            logger.error("Unexpected connection error: %s — retrying in 20s", exc)
-            await asyncio.sleep(20)
+            logger.error("Unexpected connection error: %s — retrying in 30s", exc)
+            await asyncio.sleep(30)
 
 
 if __name__ == "__main__":
