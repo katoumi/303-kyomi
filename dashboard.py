@@ -16,575 +16,580 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KYOMI-303 // OPERATOR CONSOLE</title>
+  <title>303 kyomi  ✦  control panel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #070709;
-      --surface: #0c0c10;
-      --surface-raised: #101015;
-      --card: #0f0f14;
-      --border: #1a1a22;
-      --border-bright: #282836;
-      --text: #eaebee;
-      --text-dim: #9293a3;
-      --muted: #5a5b6a;
+      --bg: #09090b;
+      --surface: #0f0f13;
+      --surface-hover: #14141a;
+      --surface-elevated: #131318;
+      --border: #1a1a23;
+      --border-subtle: #242430;
+      --text: #e6e6ef;
+      --text-muted: #6e6f7e;
+      --text-dim: #9b9ca8;
       --accent: #8a1c27;
-      --accent-bright: #b82534;
-      --accent-muted: rgba(138, 28, 39, 0.2);
-      --mint: #4ea87d;
-      --mint-muted: rgba(78, 168, 125, 0.15);
-      --amber: #c5974c;
-      --amber-muted: rgba(197, 151, 76, 0.15);
-      --mono: 'JetBrains Mono', ui-monospace, monospace;
-      --sans: 'Inter', -apple-system, sans-serif;
+      --accent-hover: #a32230;
+      --accent-muted: rgba(138, 28, 39, 0.16);
+      --mint: #5bb98c;
+      --mint-muted: rgba(91, 185, 140, 0.12);
+      --amber: #cca05c;
+      --amber-muted: rgba(204, 160, 92, 0.12);
+      --font: 'Inter', -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       background-color: var(--bg);
-      background-image:
-        linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
-      background-size: 32px 32px;
       color: var(--text);
-      font-family: var(--sans);
+      font-family: var(--font);
       min-height: 100vh;
-      padding: 16px 20px 48px;
+      padding: 24px 22px 64px;
+      letter-spacing: -0.012em;
       font-size: 13px;
       line-height: 1.5;
     }
 
-    .container { max-width: 1220px; margin: 0 auto; }
+    .container { max-width: 1120px; margin: 0 auto; }
 
-    /* Tactical Auth Modal */
+    /* Minimalist Auth Overlay */
     #authOverlay {
       position: fixed; inset: 0;
-      background: rgba(5, 5, 7, 0.94);
-      backdrop-filter: blur(8px);
+      background: rgba(9, 9, 11, 0.95);
+      backdrop-filter: blur(10px);
       display: flex; align-items: center; justify-content: center; z-index: 9999;
     }
     .auth-box {
       background: var(--surface);
-      border: 1px solid var(--border-bright);
-      border-radius: 2px;
-      padding: 28px; width: 100%; max-width: 380px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.9);
-    }
-    .auth-header {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      color: var(--muted);
-      margin-bottom: 6px;
-      text-transform: uppercase;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 32px 28px;
+      width: 100%; max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
     }
     .auth-title {
-      font-family: var(--mono);
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      font-size: 14px;
+      font-weight: 500;
       color: #fff;
-      margin-bottom: 16px;
+      margin-bottom: 4px;
+      letter-spacing: 0.02em;
+    }
+    .auth-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      font-family: var(--mono);
     }
 
-    /* Hardware Header */
-    .hardware-bar {
-      border: 1px solid var(--border);
-      background: var(--surface);
-      border-radius: 2px;
-      padding: 12px 18px;
-      margin-bottom: 14px;
+    /* Dark Aesthetic Header */
+    header.sanctuary-header {
       display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 14px;
+      margin-bottom: 18px; flex-wrap: wrap; gap: 14px;
     }
-    .brand-cluster { display: flex; align-items: center; gap: 14px; }
+    .brand-mark { display: flex; align-items: center; gap: 12px; }
     .brand-sigil {
-      font-family: var(--mono);
-      font-weight: 700;
-      font-size: 13px;
-      background: #15151c;
-      border: 1px solid var(--border-bright);
-      color: #fff;
-      padding: 6px 10px;
-      border-radius: 2px;
-      letter-spacing: 0.05em;
-    }
-    .brand-meta { display: flex; flex-direction: column; }
-    .brand-title {
       font-family: var(--mono);
       font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.04em;
       color: #fff;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      letter-spacing: 0.04em;
+    }
+    .brand-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: -0.02em;
     }
     .brand-sub {
-      font-family: var(--mono);
-      font-size: 10.5px;
-      color: var(--muted);
-      letter-spacing: 0.02em;
+      font-size: 11.5px;
+      color: var(--text-muted);
     }
 
-    .telemetry-pills { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .tag-box {
+    .header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .status-pill {
+      font-size: 11.5px;
       font-family: var(--mono);
-      font-size: 11px;
-      padding: 4px 10px;
-      background: #09090d;
+      padding: 6px 12px;
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 2px;
+      border-radius: 8px;
       display: inline-flex; align-items: center; gap: 7px;
       color: var(--text-dim);
     }
-    .tag-box.online {
-      border-color: rgba(78, 168, 125, 0.4);
+    .status-pill.online {
       color: var(--mint);
-      background: rgba(78, 168, 125, 0.06);
+      border-color: rgba(91, 185, 140, 0.25);
+      background: var(--mint-muted);
     }
-    .indicator-square { width: 6px; height: 6px; background: currentColor; }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+    }
 
-    select.node-select {
-      background: #09090d;
-      color: #fff;
+    select.guild-selector {
+      background: var(--surface);
+      color: var(--text);
       border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 6px 12px;
-      font-size: 11.5px;
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 12px;
       font-family: var(--mono);
       cursor: pointer;
       outline: none;
+      transition: border-color 0.15s;
     }
-    select.node-select:focus { border-color: var(--border-bright); }
+    select.guild-selector:focus { border-color: var(--border-subtle); }
 
-    /* Vitals Telemetry Grid */
-    .vitals-grid {
+    /* Vitals Row */
+    .vitals-bar {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 20px;
     }
-    @media (max-width: 900px) { .vitals-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 520px) { .vitals-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) { .vitals-bar { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .vitals-bar { grid-template-columns: 1fr; } }
 
-    .vital-tile {
+    .vital-item {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 12px 14px;
+      border-radius: 8px;
+      padding: 12px 16px;
     }
-    .vital-key {
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+    .vital-title {
+      font-size: 11px;
+      color: var(--text-muted);
       margin-bottom: 4px;
       display: flex; align-items: center; justify-content: space-between;
     }
-    .vital-num {
-      font-family: var(--mono);
+    .vital-value {
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 600;
+      font-family: var(--mono);
       color: #fff;
     }
 
-    /* Terminal Nav Tabs */
-    .nav-rack {
-      display: flex; gap: 4px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 4px;
-      margin-bottom: 14px;
+    /* Tabs Navigation */
+    .nav-tabs {
+      display: flex; gap: 6px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 22px;
       overflow-x: auto;
     }
-    .rack-tab {
+    .tab-item {
       background: transparent;
       border: 1px solid transparent;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 11px;
+      color: var(--text-muted);
+      font-size: 12px;
       padding: 7px 14px;
-      border-radius: 2px;
+      border-radius: 6px;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.1s;
-      letter-spacing: 0.02em;
+      transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
     }
-    .rack-tab:hover { color: var(--text); background: #111117; }
-    .rack-tab.active {
+    .tab-item:hover {
+      color: var(--text);
+      background: var(--surface);
+    }
+    .tab-item.active {
       color: #fff;
-      background: #14141c;
-      border-color: var(--border-bright);
-      font-weight: 600;
+      background: var(--surface);
+      border-color: var(--border);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
 
     /* Panes */
-    .pane { display: none; }
-    .pane.active { display: block; }
+    .pane-content { display: none; }
+    .pane-content.active { display: block; }
 
-    /* Industrial Panel Cards */
-    .panel-block {
+    /* Content Cards */
+    .dark-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 18px;
-      margin-bottom: 14px;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 16px;
     }
-    .panel-header {
+    .card-title-bar {
       display: flex; align-items: center; justify-content: space-between;
       border-bottom: 1px solid var(--border);
       padding-bottom: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
-    .panel-headline {
-      font-family: var(--mono);
-      font-size: 11.5px;
+    .card-title {
+      font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.06em;
       color: #fff;
-      text-transform: uppercase;
       display: flex; align-items: center; gap: 8px;
     }
 
-    /* Density Grid */
-    .grid-duo {
+    .duo-layout {
       display: grid;
       grid-template-columns: 1.35fr 1fr;
-      gap: 14px;
+      gap: 16px;
     }
-    @media (max-width: 900px) { .grid-duo { grid-template-columns: 1fr; } }
+    @media (max-width: 860px) { .duo-layout { grid-template-columns: 1fr; } }
 
-    /* Utilitarian Setting Row */
-    .op-row {
+    /* Setting Rows */
+    .toggle-row {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+      padding: 11px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
     }
-    .op-row:last-child { border-bottom: none; }
-    .op-label { font-size: 12.5px; font-weight: 500; color: #fff; }
-    .op-desc { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-name { font-size: 13px; font-weight: 500; color: #fff; margin-bottom: 2px; }
+    .toggle-sub { font-size: 11.5px; color: var(--text-muted); }
 
-    /* Hardware Rocker Switches */
-    .rocker {
-      display: inline-flex;
-      background: #09090d;
+    /* Dark Aesthetic Smooth Toggle Switch */
+    .smooth-switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .smooth-switch input { opacity: 0; width: 0; height: 0; }
+    .switch-track {
+      position: absolute; cursor: pointer; inset: 0;
+      background-color: #1a1a24;
       border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 2px;
-      cursor: pointer;
-      font-family: var(--mono);
-      font-size: 10.5px;
-      user-select: none;
+      border-radius: 20px;
+      transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .rocker-btn {
-      padding: 4px 10px;
-      border-radius: 2px;
-      color: var(--muted);
-      transition: all 0.1s;
+    .switch-track:before {
+      position: absolute; content: "";
+      height: 12px; width: 12px;
+      left: 3px; bottom: 3px;
+      background-color: #8c8d9e;
+      border-radius: 50%;
+      transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .rocker[data-state="on"] .btn-on {
-      background: var(--accent);
-      color: #fff;
-      font-weight: 600;
+    input:checked + .switch-track {
+      background-color: var(--accent);
+      border-color: var(--accent);
     }
-    .rocker[data-state="off"] .btn-off {
-      background: #181820;
-      color: var(--text-dim);
-      font-weight: 600;
+    input:checked + .switch-track:before {
+      transform: translateX(16px);
+      background-color: #fff;
     }
 
     /* Inputs & Buttons */
-    input[type="text"], input[type="password"], input[type="number"], select.input-ctrl {
-      background: #08080b;
+    input[type="text"], input[type="password"], input[type="number"] {
+      background: #0b0b0e;
       border: 1px solid var(--border);
-      border-radius: 2px;
+      border-radius: 6px;
       color: #fff;
-      padding: 7px 11px;
+      padding: 8px 12px;
       font-size: 12px;
       font-family: var(--mono);
       outline: none;
+      transition: border-color 0.15s;
     }
-    input[type="text"]:focus, input[type="password"]:focus, select.input-ctrl:focus {
-      border-color: var(--border-bright);
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: var(--border-subtle);
     }
-    .ctrl-btn {
-      background: #121218;
+
+    .btn-dark {
+      background: var(--surface-elevated);
       border: 1px solid var(--border);
-      border-radius: 2px;
-      color: #fff;
+      border-radius: 6px;
+      color: var(--text);
       padding: 7px 13px;
-      font-size: 11.5px;
-      font-family: var(--mono);
+      font-size: 12px;
       cursor: pointer;
       display: inline-flex; align-items: center; gap: 6px;
-      letter-spacing: 0.02em;
-      transition: all 0.1s;
+      transition: all 0.15s;
     }
-    .ctrl-btn:hover { background: #1a1a24; border-color: var(--border-bright); }
-    .ctrl-btn.armed { background: var(--accent); border-color: var(--accent-bright); color: #fff; font-weight: 600; }
-    .ctrl-btn.armed:hover { background: var(--accent-bright); }
+    .btn-dark:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-subtle);
+      color: #fff;
+    }
+    .btn-dark.crimson {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-dark.crimson:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
 
-    /* Tables */
-    table.data-table {
+    /* Minimalist Tables */
+    table.dark-table {
       width: 100%;
       border-collapse: collapse;
-      font-family: var(--mono);
-      font-size: 11.5px;
+      font-size: 12px;
     }
-    table.data-table th {
+    table.dark-table th {
       text-align: left;
-      font-size: 10px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    table.data-table td {
+      font-size: 11px;
+      color: var(--text-muted);
       padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+    }
+    table.dark-table td {
+      padding: 10px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.02);
       color: var(--text-dim);
+      font-family: var(--mono);
     }
-    table.data-table tr:hover td {
+    table.dark-table tr:hover td {
       background: rgba(255, 255, 255, 0.015);
       color: #fff;
     }
 
-    /* Monochrome Status Chips */
-    .chip {
+    /* Minimal Monochrome Badges */
+    .badge {
+      font-size: 11px;
       font-family: var(--mono);
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 2px;
-      background: #111116;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--surface-elevated);
       border: 1px solid var(--border);
       color: var(--text-dim);
       display: inline-block;
     }
-    .chip.green { border-color: rgba(78, 168, 125, 0.4); color: var(--mint); background: var(--mint-muted); }
-    .chip.amber { border-color: rgba(197, 151, 76, 0.4); color: var(--amber); background: var(--amber-muted); }
-    .chip.red { border-color: rgba(184, 37, 52, 0.4); color: #ff8590; background: var(--accent-muted); }
+    .badge.green {
+      color: var(--mint);
+      border-color: rgba(91, 185, 140, 0.3);
+      background: var(--mint-muted);
+    }
+    .badge.amber {
+      color: var(--amber);
+      border-color: rgba(204, 160, 92, 0.3);
+      background: var(--amber-muted);
+    }
+    .badge.red {
+      color: #ff7886;
+      border-color: rgba(138, 28, 39, 0.4);
+      background: var(--accent-muted);
+    }
 
-    /* Word Cloud */
-    .word-matrix { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-    .word-unit {
-      background: #09090d;
+    /* Words Chip Cloud */
+    .word-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .word-pill {
+      background: #0b0b0e;
       border: 1px solid var(--border);
-      border-radius: 2px;
-      padding: 3px 8px;
-      font-size: 11px;
+      border-radius: 4px;
+      padding: 4px 9px;
+      font-size: 11.5px;
       font-family: var(--mono);
       display: inline-flex; align-items: center; gap: 6px;
     }
-    .word-x { cursor: pointer; color: var(--muted); }
+    .word-x { cursor: pointer; color: var(--text-muted); }
     .word-x:hover { color: #ff6070; }
 
-    /* Raw Terminal Screen */
-    .screen-box {
-      background: #050507;
+    /* Feed Terminal Box */
+    .feed-terminal {
+      background: #060608;
       border: 1px solid var(--border);
-      border-radius: 2px;
+      border-radius: 6px;
       padding: 14px;
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 11.5px;
       line-height: 1.6;
-      color: #a4a5b4;
+      color: #a0a1b0;
       max-height: 380px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
 
-    /* Notification Banner */
+    /* Toast Notification */
     #actionBanner {
       position: fixed; bottom: 20px; right: 20px;
-      background: #111118; border: 1px solid var(--border-bright);
-      padding: 10px 16px; border-radius: 2px;
-      font-family: var(--mono); font-size: 11.5px;
-      color: #fff; z-index: 999; display: none;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      background: #111116; border: 1px solid var(--border-subtle);
+      padding: 10px 16px; border-radius: 6px;
+      font-size: 12px; color: #fff; z-index: 999; display: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
     }
   </style>
 </head>
 <body>
 
-  <!-- Auth Passkey Screen -->
+  <!-- Passkey Screen -->
   <div id="authOverlay" style="display: none;">
     <div class="auth-box">
-      <div class="auth-header">KYOMI-303 // ACCESS GATE</div>
-      <div class="auth-title">OPERATOR AUTHENTICATION</div>
-      <input type="password" id="passkeyInput" placeholder="ENTER ACCESS KEY..." style="width: 100%; margin-bottom: 12px;">
-      <button class="ctrl-btn armed" style="width: 100%; justify-content: center;" onclick="verifyPasskey()">VERIFY CREDENTIALS</button>
+      <div class="auth-title">✦ 303 kyomi</div>
+      <div class="auth-desc">enter passkey to unlock control panel</div>
+      <input type="password" id="passkeyInput" placeholder="passkey..." style="width: 100%; margin-bottom: 12px;">
+      <button class="btn-dark crimson" style="width: 100%; justify-content: center;" onclick="verifyPasskey()">unlock</button>
     </div>
   </div>
 
   <div id="actionBanner"></div>
 
   <div class="container">
-    <!-- Top Hardware Header -->
-    <header class="hardware-bar">
-      <div class="brand-cluster">
+    <!-- Header -->
+    <header class="sanctuary-header">
+      <div class="brand-mark">
         <div class="brand-sigil">303</div>
-        <div class="brand-meta">
-          <div class="brand-title">KYOMI // OPERATOR CONSOLE</div>
-          <div class="brand-sub">CORE DAEMON v2.5.0 &bull; MONOCHROME SUBSYSTEM</div>
+        <div>
+          <div class="brand-name">kyomi</div>
+          <div class="brand-sub">security, moderation & archival</div>
         </div>
       </div>
-      <div class="telemetry-pills">
-        <div class="tag-box online" id="statusPill">
-          <div class="indicator-square"></div>
-          <span id="statusText">DAEMON ARMED</span>
+      <div class="header-controls">
+        <div class="status-pill online" id="statusPill">
+          <div class="status-dot"></div>
+          <span id="statusText">active</span>
         </div>
-        <div class="tag-box">
-          <span>TARGET:</span>
-          <select class="node-select" id="guildSelect" onchange="loadGuildData()">
-            <option value="">LOADING CLUSTER...</option>
-          </select>
-        </div>
+        <select class="guild-selector" id="guildSelect" onchange="loadGuildData()">
+          <option value="">loading...</option>
+        </select>
       </div>
     </header>
 
-    <!-- Vitals Telemetry Row -->
-    <div class="vitals-grid">
-      <div class="vital-tile">
-        <div class="vital-key"><span>WS HEARTBEAT</span><span>PING</span></div>
-        <div class="vital-num" id="vital_ping">-- ms</div>
+    <!-- Vitals Row -->
+    <div class="vitals-bar">
+      <div class="vital-item">
+        <div class="vital-title"><span>gateway ping</span><span>◈</span></div>
+        <div class="vital-value" id="vital_ping">-- ms</div>
       </div>
-      <div class="vital-tile">
-        <div class="vital-key"><span>UPTIME CADENCE</span><span>RUN</span></div>
-        <div class="vital-num" id="vital_uptime">--</div>
+      <div class="vital-item">
+        <div class="vital-title"><span>uptime</span><span>◇</span></div>
+        <div class="vital-value" id="vital_uptime">--</div>
       </div>
-      <div class="vital-tile">
-        <div class="vital-key"><span>MEMBER CACHE</span><span>POP</span></div>
-        <div class="vital-num" id="vital_members">--</div>
+      <div class="vital-item">
+        <div class="vital-title"><span>cached members</span><span>✧</span></div>
+        <div class="vital-value" id="vital_members">--</div>
       </div>
-      <div class="vital-tile">
-        <div class="vital-key"><span>SQLITE FOOTPRINT</span><span>DISK</span></div>
-        <div class="vital-num" id="vital_dbsize">-- KB</div>
+      <div class="vital-item">
+        <div class="vital-title"><span>database footprint</span><span>▸</span></div>
+        <div class="vital-value" id="vital_dbsize">-- KB</div>
       </div>
     </div>
 
-    <!-- Navigation Rack -->
-    <nav class="nav-rack">
-      <button class="rack-tab active" onclick="switchPane('automod', event)">01 // AUTOMOD</button>
-      <button class="rack-tab" onclick="switchPane('tickets', event)">02 // TICKETS</button>
-      <button class="rack-tab" onclick="switchPane('dossier', event)">03 // DOSSIER</button>
-      <button class="rack-tab" onclick="switchPane('vanity', event)">04 // VANITY TRACKER</button>
-      <button class="rack-tab" onclick="switchPane('snapshots', event)">05 // SNAPSHOTS</button>
-      <button class="rack-tab" onclick="switchPane('bumping', event)">06 // DISBOARD</button>
-      <button class="rack-tab" onclick="switchPane('system', event)">07 // CONSOLE LOGS</button>
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-item active" onclick="switchPane('automod', event)">✦ automod</button>
+      <button class="tab-item" onclick="switchPane('tickets', event)">◈ tickets</button>
+      <button class="tab-item" onclick="switchPane('dossier', event)">◇ dossier</button>
+      <button class="tab-item" onclick="switchPane('vanity', event)">✧ vanity tracker</button>
+      <button class="tab-item" onclick="switchPane('snapshots', event)">▸ snapshots</button>
+      <button class="tab-item" onclick="switchPane('bumping', event)">○ disboard</button>
+      <button class="tab-item" onclick="switchPane('system', event)">† system feed</button>
     </nav>
 
     <!-- PANE 1: AUTOMOD -->
-    <section id="pane-automod" class="pane active">
-      <div class="grid-duo">
-        <div class="panel-block">
-          <div class="panel-header">
-            <div class="panel-headline">RULESET CONFIGURATION</div>
-            <span class="chip green">SYSTEM LIVE</span>
+    <section id="pane-automod" class="pane-content active">
+      <div class="duo-layout">
+        <div class="dark-card">
+          <div class="card-title-bar">
+            <div class="card-title">✦ security & automod rules</div>
+            <span class="badge green">armed</span>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Master AutoMod Defense</div>
-              <div class="op-desc">Global security filter and enforcement pipeline</div>
+              <div class="toggle-name">master automod</div>
+              <div class="toggle-sub">primary enforcement filter for all incoming messages</div>
             </div>
-            <div class="rocker" id="rocker_automod" onclick="toggleRocker('automod_enabled', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_automod" onchange="toggleSetting('automod_enabled', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Anti-Spam Rate Gate</div>
-              <div class="op-desc">Velocity detection (5 messages / 5 seconds threshold)</div>
+              <div class="toggle-name">anti-spam filter</div>
+              <div class="toggle-sub">detects velocity spam (5 messages in 5 seconds)</div>
             </div>
-            <div class="rocker" id="rocker_antispam" onclick="toggleRocker('anti_spam_enabled', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_antispam" onchange="toggleSetting('anti_spam_enabled', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Anti-Raid Ingress Shield</div>
-              <div class="op-desc">Rejects raid waves and unverified burner accounts</div>
+              <div class="toggle-name">anti-raid ingress shield</div>
+              <div class="toggle-sub">blocks mass joins and unverified burner accounts</div>
             </div>
-            <div class="rocker" id="rocker_antiraid" onclick="toggleRocker('antiraid_enabled', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_antiraid" onchange="toggleSetting('antiraid_enabled', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Anti-Ghostping Monitor</div>
-              <div class="op-desc">Intercepts and exposes deleted mention alerts</div>
+              <div class="toggle-name">anti-ghostping guard</div>
+              <div class="toggle-sub">detects and logs deleted messages containing mentions</div>
             </div>
-            <div class="rocker" id="rocker_ghostping" onclick="toggleRocker('ghostping_enabled', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_ghostping" onchange="toggleSetting('ghostping_enabled', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Anti-Invite Quarantine</div>
-              <div class="op-desc">Purges unauthorized Discord server invites</div>
+              <div class="toggle-name">anti-invite quarantine</div>
+              <div class="toggle-sub">auto-deletes unauthorized discord server invites</div>
             </div>
-            <div class="rocker" id="rocker_invites" onclick="toggleRocker('block_invites', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_invites" onchange="toggleSetting('block_invites', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Anti-Link Filter</div>
-              <div class="op-desc">Strips unauthorized external URLs from chat</div>
+              <div class="toggle-name">anti-link filter</div>
+              <div class="toggle-sub">blocks unauthorized external URLs from chat</div>
             </div>
-            <div class="rocker" id="rocker_links" onclick="toggleRocker('block_links', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_links" onchange="toggleSetting('block_links', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
         </div>
 
         <div>
-          <!-- Word Filter Block -->
-          <div class="panel-block">
-            <div class="panel-header">
-              <div class="panel-headline">BLACKLISTED PATTERNS</div>
+          <!-- Word Filter Card -->
+          <div class="dark-card">
+            <div class="card-title-bar">
+              <div class="card-title">◈ filtered words</div>
             </div>
             <div style="display: flex; gap: 6px; margin-bottom: 12px;">
-              <input type="text" id="newWordInput" placeholder="ADD PHRASE / PATTERN..." style="flex: 1;">
-              <button class="ctrl-btn armed" onclick="addFilterWord()">+ ADD</button>
+              <input type="text" id="newWordInput" placeholder="add word or pattern..." style="flex: 1;">
+              <button class="btn-dark crimson" onclick="addFilterWord()">add</button>
             </div>
-            <div class="word-matrix" id="wordMatrix">
-              <span class="chip">NO PATTERNS ARMED</span>
+            <div class="word-cloud" id="wordMatrix">
+              <span class="badge">no filtered words</span>
             </div>
           </div>
 
-          <!-- Mod Cases Snippet -->
-          <div class="panel-block">
-            <div class="panel-header">
-              <div class="panel-headline">RECENT DISCIPLINARY LOGS</div>
+          <!-- Mod Cases Card -->
+          <div class="dark-card">
+            <div class="card-title-bar">
+              <div class="card-title">◇ recent infractions</div>
             </div>
-            <table class="data-table">
+            <table class="dark-table">
               <thead>
                 <tr>
-                  <th>CASE</th>
-                  <th>ACTION</th>
-                  <th>TARGET</th>
-                  <th>REASON</th>
+                  <th>case</th>
+                  <th>action</th>
+                  <th>target</th>
+                  <th>reason</th>
                 </tr>
               </thead>
               <tbody id="modCasesBody">
-                <tr><td colspan="4" style="color: var(--muted); text-align: center;">NO RECENT INFRACTIONS</td></tr>
+                <tr><td colspan="4" style="color: var(--text-muted); text-align: center;">no infractions recorded</td></tr>
               </tbody>
             </table>
           </div>
@@ -593,78 +598,78 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <!-- PANE 2: TICKETS -->
-    <section id="pane-tickets" class="pane">
-      <div class="panel-block">
-        <div class="panel-header">
-          <div class="panel-headline">ACTIVE & ARCHIVED TICKET REGISTRY</div>
-          <button class="ctrl-btn" onclick="loadTickets()">REFRESH FEED</button>
+    <section id="pane-tickets" class="pane-content">
+      <div class="dark-card">
+        <div class="card-title-bar">
+          <div class="card-title">◈ ticket rooms & archives</div>
+          <button class="btn-dark" onclick="loadTickets()">refresh</button>
         </div>
-        <table class="data-table">
+        <table class="dark-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>CHANNEL</th>
-              <th>OPENER</th>
-              <th>TOPIC</th>
-              <th>STATE</th>
-              <th>OPENED</th>
-              <th>COMMAND</th>
+              <th>id</th>
+              <th>channel</th>
+              <th>opener</th>
+              <th>topic</th>
+              <th>status</th>
+              <th>created</th>
+              <th>action</th>
             </tr>
           </thead>
           <tbody id="ticketsBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--muted);">FETCHING ACTIVE ROOMS...</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">fetching ticket rooms...</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <!-- PANE 3: DOSSIER -->
-    <section id="pane-dossier" class="pane">
-      <div class="panel-block">
-        <div class="panel-header">
-          <div class="panel-headline">MEMBER INTELLIGENCE & DOSSIER SEARCH</div>
+    <section id="pane-dossier" class="pane-content">
+      <div class="dark-card">
+        <div class="card-title-bar">
+          <div class="card-title">◇ member dossier search</div>
         </div>
-        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
-          <input type="text" id="dossierQuery" placeholder="USER ID OR USERNAME..." style="flex: 1;">
-          <button class="ctrl-btn armed" onclick="searchDossier()">RETRIEVE DOSSIER</button>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input type="text" id="dossierQuery" placeholder="user id or username..." style="flex: 1;">
+          <button class="btn-dark crimson" onclick="searchDossier()">search</button>
         </div>
 
         <div id="dossierResult" style="display: none;">
-          <div class="grid-duo">
-            <div class="panel-block" style="background: #09090d;">
+          <div class="duo-layout">
+            <div class="dark-card" style="background: #0b0b0f; margin-bottom: 0;">
               <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 14px;">
-                <img id="dos_avatar" src="" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 2px;">
+                <img id="dos_avatar" src="" style="width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 6px;">
                 <div>
-                  <div id="dos_name" style="font-size: 15px; font-weight: 700; color: #fff; font-family: var(--mono);">--</div>
-                  <div id="dos_id" style="font-size: 11px; color: var(--muted); font-family: var(--mono);">--</div>
+                  <div id="dos_name" style="font-size: 14px; font-weight: 600; color: #fff;">--</div>
+                  <div id="dos_id" style="font-size: 11px; color: var(--text-muted); font-family: var(--mono);">--</div>
                 </div>
               </div>
-              <div class="op-row">
-                <span class="op-desc">SECURITY STANDING</span>
-                <span id="dos_standing" class="chip">--</span>
+              <div class="toggle-row">
+                <span class="toggle-sub">standing</span>
+                <span id="dos_standing" class="badge">--</span>
               </div>
-              <div class="op-row">
-                <span class="op-desc">JOIN DATE</span>
+              <div class="toggle-row">
+                <span class="toggle-sub">joined</span>
                 <span id="dos_joined" style="font-family: var(--mono); color: #fff;">--</span>
               </div>
-              <div class="op-row">
-                <span class="op-desc">CREATION DATE</span>
+              <div class="toggle-row">
+                <span class="toggle-sub">account created</span>
                 <span id="dos_created" style="font-family: var(--mono); color: #fff;">--</span>
               </div>
-              <div class="op-row">
-                <span class="op-desc">STRIKES (WARNS)</span>
-                <span id="dos_strikes" style="font-family: var(--mono); color: #fff; font-weight: 700;">0</span>
+              <div class="toggle-row">
+                <span class="toggle-sub">warnings (strikes)</span>
+                <span id="dos_strikes" style="font-family: var(--mono); color: #fff; font-weight: 600;">0</span>
               </div>
             </div>
 
-            <div class="panel-block" style="background: #09090d;">
-              <div class="panel-headline" style="margin-bottom: 10px;">STAFF DOSSIER NOTES</div>
+            <div class="dark-card" style="background: #0b0b0f; margin-bottom: 0;">
+              <div class="card-title" style="margin-bottom: 10px;">staff observations</div>
               <div style="display: flex; gap: 6px; margin-bottom: 12px;">
-                <input type="text" id="dos_note_input" placeholder="RECORD STAFF OBSERVATION..." style="flex: 1;">
-                <button class="ctrl-btn armed" onclick="addDossierNote()">RECORD</button>
+                <input type="text" id="dos_note_input" placeholder="add note..." style="flex: 1;">
+                <button class="btn-dark crimson" onclick="addDossierNote()">save</button>
               </div>
               <div id="dos_notes_list" style="max-height: 180px; overflow-y: auto;">
-                <div style="color: var(--muted); font-family: var(--mono); font-size: 11px;">NO STAFF NOTES ON RECORD</div>
+                <div style="color: var(--text-muted); font-size: 11.5px;">no notes on record</div>
               </div>
             </div>
           </div>
@@ -673,62 +678,64 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <!-- PANE 4: VANITY TRACKER -->
-    <section id="pane-vanity" class="pane">
-      <div class="grid-duo">
-        <div class="panel-block">
-          <div class="panel-header">
-            <div class="panel-headline">VANITY STATUS DAEMON</div>
-            <span class="chip" id="vnt_status_chip">CHECKING</span>
+    <section id="pane-vanity" class="pane-content">
+      <div class="duo-layout">
+        <div class="dark-card">
+          <div class="card-title-bar">
+            <div class="card-title">✧ vanity status tracker</div>
+            <span class="badge" id="vnt_status_chip">checking</span>
           </div>
 
-          <div class="op-row">
+          <div class="toggle-row">
             <div>
-              <div class="op-label">Tracker State</div>
-              <div class="op-desc">Real-time presence listener & auto-role assignment</div>
+              <div class="toggle-name">tracker enabled</div>
+              <div class="toggle-sub">automatically awards supporter role when detected</div>
             </div>
-            <div class="rocker" id="rocker_vanity" onclick="toggleRocker('vanity_enabled', this)">
-              <span class="rocker-btn btn-on">ON</span>
-              <span class="rocker-btn btn-off">OFF</span>
-            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_vanity" onchange="toggleSetting('vanity_enabled', this.checked)">
+              <span class="switch-track"></span>
+            </label>
           </div>
 
           <div style="margin-top: 14px;">
-            <div class="op-desc" style="margin-bottom: 4px;">TARGET VANITY PHRASE</div>
+            <div class="toggle-sub" style="margin-bottom: 4px;">target vanity phrase</div>
             <div style="display: flex; gap: 6px;">
               <input type="text" id="vnt_phrase_input" placeholder="e.g. .gg/303 or /303" style="flex: 1;">
-              <button class="ctrl-btn" onclick="saveVanityPhrase()">SAVE PHRASE</button>
+              <button class="btn-dark" onclick="saveVanityPhrase()">save phrase</button>
             </div>
           </div>
 
           <div style="margin-top: 14px;">
-            <div class="op-desc" style="margin-bottom: 4px;">ASSIGNED SUPPORTER ROLE (ID)</div>
-            <input type="text" id="vnt_role_input" placeholder="ROLE ID..." style="width: 100%; margin-bottom: 6px;">
-            <button class="ctrl-btn" onclick="saveVanityRole()">LINK ROLE</button>
+            <div class="toggle-sub" style="margin-bottom: 4px;">supporter role id</div>
+            <div style="display: flex; gap: 6px;">
+              <input type="text" id="vnt_role_input" placeholder="role id..." style="flex: 1;">
+              <button class="btn-dark" onclick="saveVanityRole()">link role</button>
+            </div>
           </div>
 
           <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
-            <button class="ctrl-btn armed" style="width: 100%; justify-content: center;" onclick="triggerVanityScan()">
-              ◈ SCAN & SYNC ALL CACHED MEMBERS NOW
+            <button class="btn-dark crimson" style="width: 100%; justify-content: center;" onclick="triggerVanityScan()">
+              † scan & sync members now
             </button>
           </div>
         </div>
 
-        <div class="panel-block">
-          <div class="panel-header">
-            <div class="panel-headline">ACTIVE SUPPORTERS ROSTER</div>
-            <span class="chip green" id="vnt_count_chip">0 SUPPORTERS</span>
+        <div class="dark-card">
+          <div class="card-title-bar">
+            <div class="card-title">✧ active supporters</div>
+            <span class="badge green" id="vnt_count_chip">0 supporters</span>
           </div>
 
-          <table class="data-table">
+          <table class="dark-table">
             <thead>
               <tr>
-                <th>SUPPORTER</th>
-                <th>DETECTED STATUS</th>
-                <th>SINCE</th>
+                <th>member</th>
+                <th>custom status</th>
+                <th>detected</th>
               </tr>
             </thead>
             <tbody id="vnt_supporters_body">
-              <tr><td colspan="3" style="text-align: center; color: var(--muted);">NO DETECTED SUPPORTERS</td></tr>
+              <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">no supporters found</td></tr>
             </tbody>
           </table>
         </div>
@@ -736,59 +743,59 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <!-- PANE 5: SNAPSHOTS -->
-    <section id="pane-snapshots" class="pane">
-      <div class="panel-block">
-        <div class="panel-header">
-          <div class="panel-headline">SERVER STRUCTURE BACKUP VAULT</div>
-          <button class="ctrl-btn armed" onclick="createSnapshotWeb()">+ CREATE STRUCTURE SNAPSHOT</button>
+    <section id="pane-snapshots" class="pane-content">
+      <div class="dark-card">
+        <div class="card-title-bar">
+          <div class="card-title">▸ server snapshots & backups</div>
+          <button class="btn-dark crimson" onclick="createSnapshotWeb()">+ new snapshot</button>
         </div>
-        <table class="data-table">
+        <table class="dark-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>LABEL</th>
-              <th>ROLES</th>
-              <th>CHANNELS</th>
-              <th>CATEGORIES</th>
-              <th>DATE</th>
-              <th>EXPORT</th>
+              <th>id</th>
+              <th>label</th>
+              <th>roles</th>
+              <th>channels</th>
+              <th>categories</th>
+              <th>date</th>
+              <th>export</th>
             </tr>
           </thead>
           <tbody id="snapshotsBody">
-            <tr><td colspan="7" style="text-align: center; color: var(--muted);">LOADING BACKUP VAULT...</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">loading snapshots...</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <!-- PANE 6: DISBOARD -->
-    <section id="pane-bumping" class="pane">
-      <div class="grid-duo">
-        <div class="panel-block">
-          <div class="panel-header">
-            <div class="panel-headline">2-HOUR CADENCE COUNTER</div>
+    <section id="pane-bumping" class="pane-content">
+      <div class="duo-layout">
+        <div class="dark-card">
+          <div class="card-title-bar">
+            <div class="card-title">○ bump countdown</div>
           </div>
-          <div style="text-align: center; padding: 28px 10px;">
-            <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 6px;">NEXT DISBOARD WINDOW OPENS IN</div>
-            <div id="bumpCountdown" style="font-family: var(--mono); font-size: 38px; font-weight: 700; color: #fff;">00:00:00</div>
-            <div id="bumpStatusNotice" style="font-family: var(--mono); font-size: 11px; color: var(--mint); margin-top: 8px;">WINDOW READY</div>
+          <div style="text-align: center; padding: 24px 10px;">
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px;">next disboard bump</div>
+            <div id="bumpCountdown" style="font-family: var(--mono); font-size: 34px; font-weight: 600; color: #fff;">00:00:00</div>
+            <div id="bumpStatusNotice" style="font-size: 11.5px; color: var(--mint); margin-top: 6px;">ready to bump</div>
           </div>
         </div>
 
-        <div class="panel-block">
-          <div class="panel-header">
-            <div class="panel-headline">SERVER BUMP LEADERBOARD</div>
+        <div class="dark-card">
+          <div class="card-title-bar">
+            <div class="card-title">○ bump leaderboard</div>
           </div>
-          <table class="data-table">
+          <table class="dark-table">
             <thead>
               <tr>
-                <th>RANK</th>
-                <th>BUMPER</th>
-                <th>SUCCESSFUL BUMPS</th>
+                <th>rank</th>
+                <th>member</th>
+                <th>bumps</th>
               </tr>
             </thead>
             <tbody id="bumpLeaderboardBody">
-              <tr><td colspan="3" style="text-align: center; color: var(--muted);">NO BUMPS LOGGED</td></tr>
+              <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">no bumps logged</td></tr>
             </tbody>
           </table>
         </div>
@@ -796,13 +803,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </section>
 
     <!-- PANE 7: CONSOLE LOGS -->
-    <section id="pane-system" class="pane">
-      <div class="panel-block">
-        <div class="panel-header">
-          <div class="panel-headline">DAEMON CONSOLE TELEMETRY STREAM</div>
-          <button class="ctrl-btn" onclick="fetchLogs()">FETCH RAW LOG</button>
+    <section id="pane-system" class="pane-content">
+      <div class="dark-card">
+        <div class="card-title-bar">
+          <div class="card-title">† system terminal feed</div>
+          <button class="btn-dark" onclick="fetchLogs()">refresh feed</button>
         </div>
-        <div class="screen-box" id="terminalScreen">INITIALIZING TERMINAL BUFFER...</div>
+        <div class="feed-terminal" id="terminalScreen">connecting to feed...</div>
       </div>
     </section>
   </div>
@@ -819,14 +826,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     function showBanner(msg, isError = false) {
       const b = document.getElementById("actionBanner");
       b.textContent = msg;
-      b.style.borderColor = isError ? "var(--accent-bright)" : "var(--border-bright)";
+      b.style.borderColor = isError ? "var(--accent)" : "var(--border-subtle)";
       b.style.display = "block";
-      setTimeout(() => { b.style.display = "none"; }, 3200);
+      setTimeout(() => { b.style.display = "none"; }, 3000);
     }
 
     function switchPane(paneId, ev) {
-      document.querySelectorAll(".pane").forEach(el => el.classList.remove("active"));
-      document.querySelectorAll(".rack-tab").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".pane-content").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".tab-item").forEach(el => el.classList.remove("active"));
       const target = document.getElementById("pane-" + paneId);
       if (target) target.classList.add("active");
       if (ev && ev.currentTarget) ev.currentTarget.classList.add("active");
@@ -865,7 +872,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const sel = document.getElementById("guildSelect");
       sel.innerHTML = "";
       if (!guilds || guilds.length === 0) {
-        sel.innerHTML = '<option value="">NO CLUSTERS ATTACHED</option>';
+        sel.innerHTML = '<option value="">no servers connected</option>';
         return;
       }
       guilds.forEach((g, i) => {
@@ -888,13 +895,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const data = await res.json();
         const s = data.settings || {};
 
-        setRockerState("rocker_automod", s.automod_enabled !== 0);
-        setRockerState("rocker_antispam", s.anti_spam_enabled !== 0);
-        setRockerState("rocker_antiraid", s.antiraid_enabled !== 0);
-        setRockerState("rocker_ghostping", s.ghostping_enabled !== 0);
-        setRockerState("rocker_invites", s.block_invites !== 0);
-        setRockerState("rocker_links", s.block_links !== 0);
-        setRockerState("rocker_vanity", s.vanity_enabled === 1);
+        document.getElementById("sw_automod").checked = s.automod_enabled !== 0;
+        document.getElementById("sw_antispam").checked = s.anti_spam_enabled !== 0;
+        document.getElementById("sw_antiraid").checked = s.antiraid_enabled !== 0;
+        document.getElementById("sw_ghostping").checked = s.ghostping_enabled !== 0;
+        document.getElementById("sw_invites").checked = s.block_invites !== 0;
+        document.getElementById("sw_links").checked = s.block_links !== 0;
+        document.getElementById("sw_vanity").checked = s.vanity_enabled === 1;
 
         renderWords(data.words || []);
         renderModCases(data.cases || []);
@@ -903,25 +910,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    function setRockerState(rockerId, isArmed) {
-      const el = document.getElementById(rockerId);
-      if (el) el.setAttribute("data-state", isArmed ? "on" : "off");
-    }
-
-    async function toggleRocker(settingKey, el) {
-      const currentState = el.getAttribute("data-state") === "on";
-      const nextVal = currentState ? 0 : 1;
-      el.setAttribute("data-state", nextVal ? "on" : "off");
-
+    async function toggleSetting(settingKey, isChecked) {
+      const nextVal = isChecked ? 1 : 0;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
           method: "POST",
           headers: authHeaders(),
           body: JSON.stringify({ key: settingKey, value: nextVal })
         });
-        if (res.ok) showBanner(`SETTING UPDATED: ${settingKey} -> ${nextVal ? 'ARMED' : 'DISABLED'}`);
+        if (res.ok) showBanner(`updated ${settingKey}`);
       } catch (e) {
-        showBanner("FAILED TO PERSIST SETTING", true);
+        showBanner("failed to save setting", true);
       }
     }
 
@@ -930,12 +929,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const matrix = document.getElementById("wordMatrix");
       matrix.innerHTML = "";
       if (!words || words.length === 0) {
-        matrix.innerHTML = '<span class="chip">NO PATTERNS ARMED</span>';
+        matrix.innerHTML = '<span class="badge">no filtered words</span>';
         return;
       }
       words.forEach(w => {
         const unit = document.createElement("div");
-        unit.className = "word-unit";
+        unit.className = "word-pill";
         unit.innerHTML = `<span>${escapeHtml(w)}</span><span class="word-x" onclick="deleteWord('${escapeHtml(w)}')">&times;</span>`;
         matrix.appendChild(unit);
       });
@@ -953,10 +952,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         });
         if (res.ok) {
           inp.value = "";
-          showBanner(`ARMED FILTER PATTERN: ${word}`);
+          showBanner(`added filtered pattern: ${word}`);
           loadGuildData();
         }
-      } catch (e) { showBanner("WORD REGISTRATION FAILED", true); }
+      } catch (e) { showBanner("failed to add word", true); }
     }
 
     async function deleteWord(word) {
@@ -967,26 +966,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           body: JSON.stringify({ action: "remove", word })
         });
         if (res.ok) {
-          showBanner(`PURGED PATTERN: ${word}`);
+          showBanner(`removed word: ${word}`);
           loadGuildData();
         }
-      } catch (e) { showBanner("WORD REMOVAL FAILED", true); }
+      } catch (e) { showBanner("failed to remove word", true); }
     }
 
     function renderModCases(cases) {
       const tbody = document.getElementById("modCasesBody");
       tbody.innerHTML = "";
       if (!cases || cases.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--muted); text-align: center;">NO RECENT INFRACTIONS</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="color: var(--text-muted); text-align: center;">no recent infractions</td></tr>';
         return;
       }
       cases.forEach(c => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>#${c.id}</td>
-          <td><span class="chip red">${c.action.toUpperCase()}</span></td>
+          <td><span class="badge red">${c.action.toLowerCase()}</span></td>
           <td>${c.target_id}</td>
-          <td>${escapeHtml(c.reason || 'NONE RECORDED')}</td>
+          <td>${escapeHtml(c.reason || 'none')}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1018,7 +1017,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const list = await res.json();
         tbody.innerHTML = "";
         if (!list || list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">NO ACTIVE ROOMS LOGGED</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">no ticket rooms found</td></tr>';
           return;
         }
         list.forEach(t => {
@@ -1028,22 +1027,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <td>#${t.id}</td>
             <td><code>${escapeHtml(t.channel_name || t.channel_id)}</code></td>
             <td>${escapeHtml(t.owner_name || t.owner_id)}</td>
-            <td><span class="chip">${escapeHtml(t.category)}</span></td>
-            <td><span class="chip ${stateColor}">${t.status.toUpperCase()}</span></td>
+            <td><span class="badge">${escapeHtml(t.category)}</span></td>
+            <td><span class="badge ${stateColor}">${t.status.toLowerCase()}</span></td>
             <td>${t.created_at ? t.created_at.slice(0, 16) : '--'}</td>
             <td>
-              ${t.status !== 'closed' ? `<button class="ctrl-btn" style="padding: 3px 8px;" onclick="closeTicketRemote(${t.channel_id})">TERMINATE</button>` : '--'}
+              ${t.status !== 'closed' ? `<button class="btn-dark" style="padding: 3px 8px;" onclick="closeTicketRemote(${t.channel_id})">close</button>` : '--'}
             </td>
           `;
           tbody.appendChild(tr);
         });
       } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">TICKETS TELEMETRY OFFLINE</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">tickets feed offline</td></tr>';
       }
     }
 
     async function closeTicketRemote(channelId) {
-      if (!confirm("TERMINATE TICKET ROOM AND SAVE AUDIT LOG?")) return;
+      if (!confirm("close ticket channel and export transcript?")) return;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/ticket/close`, {
           method: "POST",
@@ -1051,10 +1050,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           body: JSON.stringify({ channel_id: channelId })
         });
         if (res.ok) {
-          showBanner("TICKET TERMINATION COMMENCED");
+          showBanner("ticket closing sequence started");
           loadTickets();
         }
-      } catch (e) { showBanner("REMOTE TERMINATION FAILED", true); }
+      } catch (e) { showBanner("failed to close ticket", true); }
     }
 
     // --- DOSSIER ---
@@ -1064,38 +1063,38 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       if (!q || !currentGuildId) return;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/dossier?query=${encodeURIComponent(q)}`, { headers: authHeaders() });
-        if (!res.ok) return showBanner("MEMBER RECORD NOT FOUND", true);
+        if (!res.ok) return showBanner("member not found in cache", true);
         const data = await res.json();
         currentDossierUserId = data.user_id;
 
         document.getElementById("dos_name").textContent = data.name;
-        document.getElementById("dos_id").textContent = `ID: ${data.user_id}`;
+        document.getElementById("dos_id").textContent = `id: ${data.user_id}`;
         document.getElementById("dos_avatar").src = data.avatar_url || "https://cdn.discordapp.com/embed/avatars/0.png";
-        document.getElementById("dos_standing").textContent = (data.standing || "CLEAN").toUpperCase();
-        document.getElementById("dos_standing").className = "chip " + (data.standing === "trusted" ? "green" : (data.standing === "flagged" ? "red" : "amber"));
+        document.getElementById("dos_standing").textContent = (data.standing || "clean").toLowerCase();
+        document.getElementById("dos_standing").className = "badge " + (data.standing === "trusted" ? "green" : (data.standing === "flagged" ? "red" : "amber"));
         document.getElementById("dos_joined").textContent = data.joined_at || "--";
         document.getElementById("dos_created").textContent = data.created_at || "--";
         document.getElementById("dos_strikes").textContent = data.strikes || 0;
 
         renderDossierNotes(data.notes || []);
         document.getElementById("dossierResult").style.display = "block";
-      } catch (e) { showBanner("DOSSIER LOOKUP FAILED", true); }
+      } catch (e) { showBanner("dossier lookup failed", true); }
     }
 
     function renderDossierNotes(notes) {
       const container = document.getElementById("dos_notes_list");
       container.innerHTML = "";
       if (!notes || notes.length === 0) {
-        container.innerHTML = '<div style="color: var(--muted); font-family: var(--mono); font-size: 11px;">NO STAFF OBSERVATIONS RECORDED</div>';
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 11.5px;">no staff notes recorded</div>';
         return;
       }
       notes.forEach(n => {
         const item = document.createElement("div");
         item.style.padding = "6px 0";
-        item.style.borderBottom = "1px solid rgba(255,255,255,0.025)";
+        item.style.borderBottom = "1px solid rgba(255, 255, 255, 0.025)";
         item.innerHTML = `
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-family: var(--mono);">
-            <span>BY: ${n.author_id}</span>
+          <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); font-family: var(--mono);">
+            <span>author: ${n.author_id}</span>
             <span>${n.created_at}</span>
           </div>
           <div style="font-size: 12px; color: #fff; margin-top: 2px;">${escapeHtml(n.note)}</div>
@@ -1116,10 +1115,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         });
         if (res.ok) {
           inp.value = "";
-          showBanner("STAFF OBSERVATION LOGGED");
+          showBanner("note saved");
           searchDossier();
         }
-      } catch (e) { showBanner("NOTE RECORDING FAILED", true); }
+      } catch (e) { showBanner("failed to save note", true); }
     }
 
     // --- VANITY TRACKER ---
@@ -1130,19 +1129,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if (!res.ok) return;
         const v = await res.json();
 
-        setRockerState("rocker_vanity", v.enabled);
+        document.getElementById("sw_vanity").checked = v.enabled;
         const chip = document.getElementById("vnt_status_chip");
-        chip.textContent = v.enabled ? "TRACKER LIVE" : "DISABLED";
-        chip.className = "chip " + (v.enabled ? "green" : "");
+        chip.textContent = v.enabled ? "active" : "disabled";
+        chip.className = "badge " + (v.enabled ? "green" : "");
 
         document.getElementById("vnt_phrase_input").value = v.phrase || ".gg/303";
         document.getElementById("vnt_role_input").value = v.role_id || "";
-        document.getElementById("vnt_count_chip").textContent = `${v.count} SUPPORTERS`;
+        document.getElementById("vnt_count_chip").textContent = `${v.count} supporters`;
 
         const tbody = document.getElementById("vnt_supporters_body");
         tbody.innerHTML = "";
         if (!v.supporters || v.supporters.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted);">NO DETECTED SUPPORTERS</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">no supporters found</td></tr>';
           return;
         }
         v.supporters.forEach(s => {
@@ -1167,8 +1166,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           headers: authHeaders(),
           body: JSON.stringify({ key: "vanity_phrase", value: phrase })
         });
-        if (res.ok) showBanner(`ARMED VANITY PHRASE: ${phrase}`);
-      } catch (e) { showBanner("PHRASE SAVE FAILED", true); }
+        if (res.ok) showBanner(`vanity phrase saved: ${phrase}`);
+      } catch (e) { showBanner("failed to save phrase", true); }
     }
 
     async function saveVanityRole() {
@@ -1180,12 +1179,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           headers: authHeaders(),
           body: JSON.stringify({ key: "vanity_role_id", value: parseInt(roleId) })
         });
-        if (res.ok) showBanner(`LINKED SUPPORTER ROLE: ${roleId}`);
-      } catch (e) { showBanner("ROLE SAVE FAILED", true); }
+        if (res.ok) showBanner(`supporter role linked: ${roleId}`);
+      } catch (e) { showBanner("failed to link role", true); }
     }
 
     async function triggerVanityScan() {
-      showBanner("SCANNING GUILD MEMBERS...");
+      showBanner("scanning members for vanity status...");
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/vanity/scan`, {
           method: "POST",
@@ -1193,12 +1192,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         });
         if (res.ok) {
           const r = await res.json();
-          showBanner(`SCAN COMPLETE: ${r.scanned} SCANNED, ${r.awarded} AWARDED, ${r.revoked} REVOKED`);
+          showBanner(`scan complete: ${r.scanned} scanned, ${r.awarded} awarded, ${r.revoked} revoked`);
           loadVanity();
         } else {
-          showBanner("SCAN EXECUTION FAILED", true);
+          showBanner("scan failed", true);
         }
-      } catch (e) { showBanner("SCAN DISPATCH FAILED", true); }
+      } catch (e) { showBanner("failed to trigger scan", true); }
     }
 
     // --- SNAPSHOTS ---
@@ -1210,7 +1209,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const list = await res.json();
         tbody.innerHTML = "";
         if (!list || list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">NO SNAPSHOTS IN VAULT</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">no snapshots created</td></tr>';
           return;
         }
         list.forEach(s => {
@@ -1223,16 +1222,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <td>${s.categories_count}</td>
             <td>${s.created_at}</td>
             <td>
-              <a href="/api/snapshots/${s.id}/download?key=${encodeURIComponent(passkey)}" class="ctrl-btn" style="padding: 3px 8px; text-decoration: none;">EXPORT JSON</a>
+              <a href="/api/snapshots/${s.id}/download?key=${encodeURIComponent(passkey)}" class="btn-dark" style="padding: 3px 8px; text-decoration: none;">export json</a>
             </td>
           `;
           tbody.appendChild(tr);
         });
-      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">SNAPSHOT VAULT OFFLINE</td></tr>'; }
+      } catch (e) { tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">snapshots unavailable</td></tr>'; }
     }
 
     async function createSnapshotWeb() {
-      const label = prompt("ENTER STRUCTURE SNAPSHOT LABEL:", "web-checkpoint");
+      const label = prompt("enter snapshot label:", "backup");
       if (!label) return;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/snapshots/create`, {
@@ -1241,10 +1240,10 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           body: JSON.stringify({ label })
         });
         if (res.ok) {
-          showBanner("SNAPSHOT SECURED IN VAULT");
+          showBanner("snapshot saved");
           loadSnapshots();
         }
-      } catch (e) { showBanner("CREATION FAILED", true); }
+      } catch (e) { showBanner("failed to create snapshot", true); }
     }
 
     // --- BUMP DATA ---
@@ -1259,9 +1258,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         let rem = d.remaining_seconds || 0;
         const renderTimer = () => {
           if (rem <= 0) {
-            document.getElementById("bumpCountdown").textContent = "READY";
+            document.getElementById("bumpCountdown").textContent = "ready";
             document.getElementById("bumpCountdown").style.color = "var(--mint)";
-            document.getElementById("bumpStatusNotice").textContent = "DISBOARD CADENCE READY TO FIRE";
+            document.getElementById("bumpStatusNotice").textContent = "ready to bump";
           } else {
             const h = Math.floor(rem / 3600);
             const m = Math.floor((rem % 3600) / 60);
@@ -1269,7 +1268,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             document.getElementById("bumpCountdown").textContent =
               `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             document.getElementById("bumpCountdown").style.color = "#fff";
-            document.getElementById("bumpStatusNotice").textContent = "WINDOW LOCKED IN 2H CADENCE";
+            document.getElementById("bumpStatusNotice").textContent = "cooldown active";
             rem--;
           }
         };
@@ -1280,7 +1279,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const tbody = document.getElementById("bumpLeaderboardBody");
         tbody.innerHTML = "";
         if (!d.leaderboard || d.leaderboard.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--muted);">NO BUMPS LOGGED</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">no bumps logged</td></tr>';
           return;
         }
         d.leaderboard.forEach((r, idx) => {
@@ -1304,7 +1303,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           scr.textContent = await res.text();
           scr.scrollTop = scr.scrollHeight;
         }
-      } catch (e) { scr.textContent = "LOG STREAM CONNECTION FAILED"; }
+      } catch (e) { scr.textContent = "logs stream connection error"; }
     }
 
     function escapeHtml(str) {
@@ -1322,7 +1321,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
 
 class WebDashboard:
-    """Tactical operator console for 303 KYOMI with 6 integrated telemetry modules."""
+    """Dark aesthetic web control panel for 303 KYOMI with 6 integrated modules."""
 
     def __init__(self, bot: discord.Client, db, port: int = 3030):
         self.bot = bot
@@ -1378,12 +1377,12 @@ class WebDashboard:
 
         if not log_content:
             log_content = (
-                f"[SYSTEM STATUS: ONLINE]\n"
-                f"Bot User: {self.bot.user}\n"
-                f"Gateway WS Ping: {round(self.bot.latency * 1000, 1)}ms\n"
-                f"Guilds Attached: {len(self.bot.guilds)}\n"
-                f"Database Engine: SQLite (moderation.db)\n"
-                f"No persistent logfile on disk yet. Active gateway sessions operational."
+                f"[303 kyomi  ✦  active]\n"
+                f"bot: {self.bot.user}\n"
+                f"gateway ping: {round(self.bot.latency * 1000, 1)}ms\n"
+                f"connected guilds: {len(self.bot.guilds)}\n"
+                f"database: sqlite (moderation.db)\n"
+                f"gateway session operational."
             )
 
         return web.Response(text=log_content, content_type="text/plain")
@@ -1561,7 +1560,7 @@ class WebDashboard:
             return web.json_response({"error": "empty note"}, status=400)
 
         author_id = self.bot.user.id if self.bot.user else 0
-        await self.db.add_staff_note(guild_id, target_id, author_id, f"[WEB OPERATOR] {note_text}")
+        await self.db.add_staff_note(guild_id, target_id, author_id, f"[operator] {note_text}")
         return web.json_response({"status": "recorded"})
 
     # --- 3. VANITY TRACKER ---
@@ -1652,7 +1651,7 @@ class WebDashboard:
             return web.json_response({"error": "unauthorized"}, status=401)
         guild_id = int(request.match_info["guild_id"])
         data = await request.json()
-        label = str(data.get("label", "manual-web")).strip() or "manual-web"
+        label = str(data.get("label", "web-backup")).strip() or "web-backup"
         guild = self.bot.get_guild(guild_id)
         if not guild:
             return web.json_response({"error": "guild not found"}, status=404)
@@ -1748,7 +1747,7 @@ class WebDashboard:
         await self.runner.setup()
         site = web.TCPSite(self.runner, "0.0.0.0", self.port)
         await site.start()
-        logger.info("303 KYOMI Operator Console live on port %s", self.port)
+        logger.info("303 KYOMI Control Panel online on port %s", self.port)
 
     async def stop(self) -> None:
         if self.runner:
