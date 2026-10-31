@@ -1352,7 +1352,7 @@ class WebDashboard:
         self.db = db
         # Automatically detects Wispbyte/Pterodactyl SERVER_PORT
         self.port = int(os.getenv("PORT", os.getenv("SERVER_PORT", port)))
-        self.password = os.getenv("DASHBOARD_PASSWORD", "303kyomi").strip() or "303kyomi"
+        self.password = os.getenv("DASHBOARD_PASSWORD", "303kyomi303@").strip() or "303kyomi303@"
         self.runner: web.AppRunner | None = None
 
     def _authorized(self, request: web.Request) -> bool:
