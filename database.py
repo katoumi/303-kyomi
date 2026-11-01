@@ -471,6 +471,8 @@ class Database:
         await self.conn.commit()
         return cursor.lastrowid or 0
 
+    create_snapshot = save_snapshot
+
     async def get_snapshots(self, guild_id: int) -> list[dict]:
         assert self.conn is not None
         async with self.conn.execute(

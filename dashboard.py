@@ -1680,15 +1680,15 @@ class WebDashboard:
             return web.json_response({"error": "guild not found"}, status=404)
 
         from cogs.snapshot import serialize_guild_structure
-        roles_json, channels_json, metadata_json = serialize_guild_structure(guild)
+        roles_data, channels_data, meta = serialize_guild_structure(guild)
         author_id = self.bot.user.id if self.bot.user else 0
-        snap_id = await self.db.create_snapshot(
+        snap_id = await self.db.save_snapshot(
             guild_id=guild.id,
             creator_id=author_id,
             label=label,
-            roles_json=roles_json,
-            channels_json=channels_json,
-            metadata_json=metadata_json,
+            roles_json=json.dumps(roles_data),
+            channels_json=json.dumps(channels_data),
+            metadata_json=json.dumps(meta),
         )
         return web.json_response({"status": "created", "snapshot_id": snap_id})
 
