@@ -450,6 +450,15 @@ class Database:
         await self.conn.commit()
         return cursor.lastrowid or 0
 
+    async def get_recent_mod_cases(self, guild_id: int, limit: int = 10) -> list[dict]:
+        assert self.conn is not None
+        async with self.conn.execute(
+            'SELECT * FROM mod_cases WHERE guild_id = ? ORDER BY id DESC LIMIT ?',
+            (guild_id, limit),
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(r) for r in rows]
+
     # --- Server Snapshots & Recovery ---
     async def save_snapshot(
         self,
