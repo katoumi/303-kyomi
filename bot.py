@@ -50,6 +50,7 @@ COGS = [
     "cogs.help_cog",
     "cogs.snapshot",
     "cogs.vanity",
+    "cogs.status",
 ]
 
 
@@ -72,6 +73,15 @@ class ModBot(commands.Bot):
         self.db = Database(db_path)
         self.start_time = datetime.datetime.now(datetime.timezone.utc)
 
+    async def close(self) -> None:
+        try:
+            status_cog = self.get_cog("Status")
+            if status_cog and hasattr(status_cog, "mark_all_offline"):
+                await status_cog.mark_all_offline()
+        except Exception:
+            pass
+        await super().close()
+
     async def setup_hook(self) -> None:
         for cog in COGS:
             await self.load_extension(cog)

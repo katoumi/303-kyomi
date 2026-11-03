@@ -139,6 +139,8 @@ class Database:
             "ALTER TABLE guild_settings ADD COLUMN vanity_phrase TEXT DEFAULT '.gg/303'",
             "ALTER TABLE guild_settings ADD COLUMN vanity_role_id INTEGER",
             "ALTER TABLE guild_settings ADD COLUMN vanity_channel_id INTEGER",
+            "ALTER TABLE guild_settings ADD COLUMN status_vc_id INTEGER",
+            "ALTER TABLE guild_settings ADD COLUMN status_vc_format TEXT DEFAULT '● 303 kyomi  •  online'",
         ]
         for sql in migrations:
             try:
@@ -197,6 +199,12 @@ class Database:
             "antiraid_action",
             "ghostping_enabled",
             "scam_guard_enabled",
+            "vanity_enabled",
+            "vanity_phrase",
+            "vanity_role_id",
+            "vanity_channel_id",
+            "status_vc_id",
+            "status_vc_format",
         }
         if column not in allowed_columns:
             raise ValueError(f"Invalid setting column: {column}")

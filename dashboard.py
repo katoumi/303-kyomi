@@ -132,6 +132,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       border-color: rgba(91, 185, 140, 0.25);
       background: var(--mint-muted);
     }
+    .status-pill.offline {
+      color: #e55353;
+      border-color: rgba(229, 83, 83, 0.35);
+      background: rgba(229, 83, 83, 0.08);
+    }
+    .status-pill.connecting {
+      color: var(--amber);
+      border-color: rgba(210, 153, 34, 0.35);
+      background: rgba(210, 153, 34, 0.08);
+    }
     .status-dot {
       width: 6px; height: 6px; border-radius: 50%; background: currentColor;
     }
@@ -454,6 +464,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       </div>
     </header>
 
+    <!-- Offline Alert Banner -->
+    <div id="offlineNotice" style="display: none; background: #160d10; border: 1px solid rgba(229, 83, 83, 0.35); color: #f87171; padding: 10px 16px; border-radius: 8px; font-size: 11.5px; font-family: var(--mono); margin-bottom: 16px; align-items: center; justify-content: space-between;">
+      <div id="offlineNoticeMsg"><span>⊘ host unreachable</span> — 303 kyomi is offline or suspended on wispbyte.</div>
+      <div style="color: var(--text-muted); font-size: 11px;">auto-reconnecting...</div>
+    </div>
+
     <!-- Vitals Row -->
     <div class="vitals-bar">
       <div class="vital-item">
@@ -573,6 +589,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
             <div class="word-cloud" id="wordMatrix">
               <span class="badge">no filtered words</span>
+            </div>
+          </div>
+
+          <!-- Status Voice Channel Card -->
+          <div class="dark-card" style="margin-bottom: 16px;">
+            <div class="card-title-bar">
+              <div class="card-title">● status voice channel</div>
+              <span class="badge" id="statusVcBadge">not linked</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
+              locks & renames a voice channel to display whether 303 kyomi is online or offline.
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <select id="sel_status_vc" class="guild-selector" style="flex: 1;" onchange="updateStatusVc(this.value)">
+                <option value="">-- select voice channel (disabled) --</option>
+              </select>
+              <button class="btn-dark" onclick="syncStatusVc()">sync</button>
             </div>
           </div>
 
@@ -928,6 +961,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById("sw_links").checked = s.block_links !== 0;
         document.getElementById("sw_vanity").checked = s.vanity_enabled === 1;
 
+        // Populate Status VC dropdown
+        const vcSelect = document.getElementById("sel_status_vc");
+        if (vcSelect && data.voice_channels) {
+          const currentVal = s.status_vc_id ? String(s.status_vc_id) : "";
+          vcSelect.innerHTML = '<option value="">-- select voice channel (disabled) --</option>';
+          data.voice_channels.forEach(vc => {
+            const opt = document.createElement("option");
+            opt.value = vc.id;
+            opt.textContent = "# " + vc.name;
+            if (vc.id === currentVal) opt.selected = true;
+            vcSelect.appendChild(opt);
+          });
+          const badge = document.getElementById("statusVcBadge");
+          if (badge) {
+            badge.textContent = s.status_vc_id ? "active" : "not linked";
+            badge.className = s.status_vc_id ? "badge green" : "badge";
+          }
+        }
+
         renderWords(data.words || []);
         renderModCases(data.cases || []);
       } catch (e) {
@@ -1016,21 +1068,91 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       });
     }
 
+    async function updateStatusVc(val) {
+      if (!currentGuildId) return;
+      const v = val ? parseInt(val) : null;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: "status_vc_id", value: v })
+        });
+        if (res.ok) {
+          showBanner(v ? "status voice channel linked & synced" : "status voice channel unlinked");
+          const badge = document.getElementById("statusVcBadge");
+          if (badge) {
+            badge.textContent = v ? "active" : "not linked";
+            badge.className = v ? "badge green" : "badge";
+          }
+        }
+      } catch (e) {
+        showBanner("failed to update status channel", true);
+      }
+    }
+
+    async function syncStatusVc() {
+      const vcSelect = document.getElementById("sel_status_vc");
+      if (vcSelect) updateStatusVc(vcSelect.value);
+    }
+
     async function startTelemetryLoop() {
       const poll = async () => {
+        const statusPill = document.getElementById("statusPill");
+        const statusText = document.getElementById("statusText");
+        const offlineNotice = document.getElementById("offlineNotice");
+        const offlineMsg = document.getElementById("offlineNoticeMsg");
+
         try {
-          const res = await fetch("/api/vitals", { headers: authHeaders() });
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 7000);
+          const res = await fetch("/api/vitals", {
+            headers: authHeaders(),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
           if (res.ok) {
             const v = await res.json();
+            const isReady = v.is_ready !== false;
+
+            if (isReady) {
+              if (statusPill) statusPill.className = "status-pill online";
+              if (statusText) statusText.textContent = "active";
+              if (offlineNotice) offlineNotice.style.display = "none";
+            } else {
+              if (statusPill) statusPill.className = "status-pill connecting";
+              if (statusText) statusText.textContent = "connecting";
+              if (offlineNotice) {
+                offlineNotice.style.display = "flex";
+                if (offlineMsg) offlineMsg.innerHTML = "<span>◈ gateway reconnecting</span> — 303 kyomi is reconnecting to discord...";
+              }
+            }
+
             document.getElementById("vital_ping").textContent = v.ping_ms + " ms";
             document.getElementById("vital_uptime").textContent = v.uptime;
             document.getElementById("vital_members").textContent = v.cached_members;
             document.getElementById("vital_dbsize").textContent = v.db_size_kb + " KB";
+          } else {
+            if (statusPill) statusPill.className = "status-pill offline";
+            if (statusText) statusText.textContent = "offline";
+            document.getElementById("vital_ping").textContent = "offline";
+            if (offlineNotice) {
+              offlineNotice.style.display = "flex";
+              if (offlineMsg) offlineMsg.innerHTML = "<span>⊘ host unreachable</span> — server returned " + res.status;
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          if (statusPill) statusPill.className = "status-pill offline";
+          if (statusText) statusText.textContent = "offline";
+          document.getElementById("vital_ping").textContent = "offline";
+          if (offlineNotice) {
+            offlineNotice.style.display = "flex";
+            if (offlineMsg) offlineMsg.innerHTML = "<span>⊘ host unreachable</span> — 303 kyomi is offline or suspended on wispbyte.";
+          }
+        }
       };
       poll();
-      setInterval(poll, 30000);
+      setInterval(poll, 15000);
     }
 
     // --- TICKETS ---
@@ -1429,7 +1551,10 @@ class WebDashboard:
         if os.path.exists(db_path):
             db_size_kb = round(os.path.getsize(db_path) / 1024, 1)
 
+        is_ready = bool(self.bot.is_ready())
         return web.json_response({
+            "is_ready": is_ready,
+            "status": "online" if is_ready else "connecting",
             "ping_ms": ping,
             "uptime": uptime_str,
             "cached_members": total_members,
@@ -1452,10 +1577,18 @@ class WebDashboard:
         settings = await self.db.get_guild_settings(guild_id)
         words = await self.db.get_bad_words(guild_id)
         cases = await self.db.get_recent_mod_cases(guild_id, limit=5)
+        guild = self.bot.get_guild(guild_id)
+        voice_channels = []
+        if guild:
+            voice_channels = [
+                {"id": str(vc.id), "name": vc.name}
+                for vc in guild.voice_channels
+            ]
         return web.json_response({
             "settings": settings,
             "words": words,
             "cases": cases,
+            "voice_channels": voice_channels,
         })
 
     async def handle_update_setting(self, request: web.Request) -> web.Response:
@@ -1466,6 +1599,19 @@ class WebDashboard:
         key = data.get("key")
         val = data.get("value")
         await self.db.update_guild_setting(guild_id, key, val)
+        if key == "status_vc_id":
+            status_cog = self.bot.get_cog("Status")
+            guild = self.bot.get_guild(guild_id)
+            if status_cog and guild:
+                try:
+                    settings = await self.db.get_guild_settings(guild_id)
+                    target_name = await status_cog.render_status_name(guild, settings, is_online=True)
+                    if val:
+                        ch = guild.get_channel(int(val))
+                        if ch:
+                            await ch.edit(name=target_name, reason="303 kyomi  •  dashboard status vc link")
+                except Exception:
+                    pass
         return web.json_response({"status": "ok", "key": key, "value": val})
 
     async def handle_words(self, request: web.Request) -> web.Response:
