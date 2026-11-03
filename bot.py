@@ -66,22 +66,31 @@ class ModBot(commands.Bot):
         intents.moderation = True
 
         super().__init__(
-            command_prefix=commands.when_mentioned,
+            command_prefix=commands.when_mentioned_or("!", "."),
             intents=intents,
             help_command=None,
         )
         self.db = Database(db_path)
         self.start_time = datetime.datetime.now(datetime.timezone.utc)
 
-    async def close(self) -> None:
-        try:
-            status_cog = self.get_cog("Status")
-            if status_cog and hasattr(status_cog, "mark_all_offline"):
-                await status_cog.mark_all_offline()
-        except Exception:
-            pass
-        await super().close()
-
+    async def close(self) -> None:
+
+        try:
+
+            status_cog = self.get_cog("Status")
+
+            if status_cog and hasattr(status_cog, "mark_all_offline"):
+
+                await status_cog.mark_all_offline()
+
+        except Exception:
+
+            pass
+
+        await super().close()
+
+
+
     async def setup_hook(self) -> None:
         for cog in COGS:
             await self.load_extension(cog)
@@ -90,24 +99,26 @@ class ModBot(commands.Bot):
     @commands.command(name="sync")
     @commands.has_permissions(administrator=True)
     async def sync_cmd(self, ctx: commands.Context):
-        synced = await self.tree.sync()
-        await ctx.send(f"*synced `{len(synced)}` slash commands.*")
+        if ctx.guild:
+            self.tree.copy_global_to(guild=ctx.guild)
+            synced = await self.tree.sync(guild=ctx.guild)
+            await ctx.send(f"*synced `{len(synced)}` slash commands directly to this server.*")
+        else:
+            synced = await self.tree.sync()
+            await ctx.send(f"*synced `{len(synced)}` slash commands globally.*")
 
     async def on_ready(self) -> None:
         assert self.user is not None
         logger.info("Logged in as %s (ID: %d)", self.user, self.user.id)
         
-        # Only sync commands if explicitly requested to prevent triggering Discord IP rate limits
-        should_sync = os.getenv("SYNC_ON_STARTUP", "false").lower() in ("true", "1", "yes")
-        if should_sync and not getattr(self, "_commands_synced", False):
-            self._commands_synced = True
+        # Instant guild sync so slash commands appear immediately in your servers
+        for g in self.guilds:
             try:
-                synced = await self.tree.sync()
-                logger.info("Synchronized %d global slash command(s).", len(synced))
+                self.tree.copy_global_to(guild=g)
+                synced = await self.tree.sync(guild=g)
+                logger.info("Instantly synced %d slash command(s) to guild %s (%d)", len(synced), g.name, g.id)
             except Exception as exc:
-                logger.warning("Skipping startup tree.sync due to rate limit: %s", exc)
-        else:
-            logger.info("Using cached slash commands (skipped tree.sync on boot to respect Discord rate limits).")
+                logger.warning("Could not sync to guild %s on boot: %s", g.id, exc)
 
         await self.change_presence(
             status=discord.Status.dnd,

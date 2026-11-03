@@ -460,6 +460,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <select class="guild-selector" id="guildSelect" onchange="loadGuildData()">
           <option value="">loading...</option>
         </select>
+        <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="syncCommands()" title="sync slash commands with discord">⟳ sync slash</button>
         <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="lockDashboard()" title="lock session">× lock</button>
       </div>
     </header>
@@ -1095,6 +1096,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       if (vcSelect) updateStatusVc(vcSelect.value);
     }
 
+    async function syncCommands() {
+      showBanner("syncing slash commands with discord...");
+      try {
+        const url = currentGuildId ? `/api/sync-commands?guild_id=${currentGuildId}` : "/api/sync-commands";
+        const res = await fetch(url, { method: "POST", headers: authHeaders() });
+        const d = await res.json();
+        if (res.ok) {
+          showBanner(`synced ${d.synced} slash commands to discord`);
+        } else {
+          showBanner("sync failed: " + (d.error || "unknown"), true);
+        }
+      } catch (e) {
+        showBanner("error syncing commands", true);
+      }
+    }
+
     async function startTelemetryLoop() {
       const poll = async () => {
         const statusPill = document.getElementById("statusPill");
@@ -1532,6 +1549,25 @@ class WebDashboard:
 
         return web.Response(text=log_content, content_type="text/plain")
 
+    async def handle_sync_commands(self, request: web.Request) -> web.Response:
+        if not self._authorized(request):
+            return web.json_response({"error": "unauthorized"}, status=401)
+        guild_id_str = request.query.get("guild_id")
+        count = 0
+        if guild_id_str:
+            try:
+                guild = self.bot.get_guild(int(guild_id_str))
+                if guild:
+                    self.bot.tree.copy_global_to(guild=guild)
+                    synced = await self.bot.tree.sync(guild=guild)
+                    count = len(synced)
+            except Exception as e:
+                logger.error("Guild sync error: %s", e)
+        if count == 0:
+            synced = await self.bot.tree.sync()
+            count = len(synced)
+        return web.json_response({"status": "ok", "synced": count})
+
     async def handle_vitals(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
@@ -1898,7 +1934,8 @@ class WebDashboard:
         app.router.add_get("/api/guilds", self.handle_guilds)
         app.router.add_get("/api/guild/{guild_id}", self.handle_guild_data)
         app.router.add_post("/api/guild/{guild_id}/setting", self.handle_update_setting)
-        app.router.add_post("/api/guild/{guild_id}/words", self.handle_words)
+        app.router.add_post("/api/guild/{guild_id}/words", self.handle_words)
+        app.router.add_post("/api/sync-commands", self.handle_sync_commands)
 
         # 6 Modules Routes
         app.router.add_get("/api/guild/{guild_id}/tickets", self.handle_get_tickets)
