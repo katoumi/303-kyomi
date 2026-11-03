@@ -460,7 +460,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <select class="guild-selector" id="guildSelect" onchange="loadGuildData()">
           <option value="">loading...</option>
         </select>
-        <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="syncCommands()" title="sync slash commands with discord">⟳ sync slash</button>
+        <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="syncCommands()" title="sync slash commands with discord">⟳ sync slash</button>
+
         <button class="btn-dark" style="padding: 6px 11px; font-size: 11.5px;" onclick="lockDashboard()" title="lock session">× lock</button>
       </div>
     </header>
@@ -962,22 +963,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         document.getElementById("sw_links").checked = s.block_links !== 0;
         document.getElementById("sw_vanity").checked = s.vanity_enabled === 1;
 
-        // Populate Status VC dropdown
+        // Populate Status VC dropdown (safe 64-bit string snowflake match)
         const vcSelect = document.getElementById("sel_status_vc");
         if (vcSelect && data.voice_channels) {
-          const currentVal = s.status_vc_id ? String(s.status_vc_id) : "";
+          const currentVal = (s.status_vc_id && s.status_vc_id !== "0") ? String(s.status_vc_id) : "";
           vcSelect.innerHTML = '<option value="">-- select voice channel (disabled) --</option>';
           data.voice_channels.forEach(vc => {
             const opt = document.createElement("option");
-            opt.value = vc.id;
+            opt.value = String(vc.id);
             opt.textContent = "# " + vc.name;
-            if (vc.id === currentVal) opt.selected = true;
+            if (String(vc.id) === currentVal) opt.selected = true;
             vcSelect.appendChild(opt);
           });
           const badge = document.getElementById("statusVcBadge");
           if (badge) {
-            badge.textContent = s.status_vc_id ? "active" : "not linked";
-            badge.className = s.status_vc_id ? "badge green" : "badge";
+            const isLinked = Boolean(currentVal);
+            badge.textContent = isLinked ? "active" : "not linked";
+            badge.className = isLinked ? "badge green" : "badge";
           }
         }
 
@@ -1071,20 +1073,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     async function updateStatusVc(val) {
       if (!currentGuildId) return;
-      const v = val ? parseInt(val) : null;
+      const v = (val && String(val).trim()) ? String(val).trim() : null;
       try {
         const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
           method: "POST",
           headers: authHeaders(),
           body: JSON.stringify({ key: "status_vc_id", value: v })
         });
+        const d = await res.json();
         if (res.ok) {
-          showBanner(v ? "status voice channel linked & synced" : "status voice channel unlinked");
+          if (d.warning) {
+            showBanner(d.warning, true);
+          } else {
+            showBanner(v ? "status voice channel linked & synced" : "status voice channel unlinked");
+          }
           const badge = document.getElementById("statusVcBadge");
           if (badge) {
             badge.textContent = v ? "active" : "not linked";
             badge.className = v ? "badge green" : "badge";
           }
+        } else {
+          showBanner("failed to update: " + (d.error || "unknown"), true);
         }
       } catch (e) {
         showBanner("failed to update status channel", true);
@@ -1549,25 +1558,44 @@ class WebDashboard:
 
         return web.Response(text=log_content, content_type="text/plain")
 
-    async def handle_sync_commands(self, request: web.Request) -> web.Response:
-        if not self._authorized(request):
-            return web.json_response({"error": "unauthorized"}, status=401)
-        guild_id_str = request.query.get("guild_id")
-        count = 0
-        if guild_id_str:
-            try:
-                guild = self.bot.get_guild(int(guild_id_str))
-                if guild:
-                    self.bot.tree.copy_global_to(guild=guild)
-                    synced = await self.bot.tree.sync(guild=guild)
-                    count = len(synced)
-            except Exception as e:
-                logger.error("Guild sync error: %s", e)
-        if count == 0:
-            synced = await self.bot.tree.sync()
-            count = len(synced)
-        return web.json_response({"status": "ok", "synced": count})
-
+    async def handle_sync_commands(self, request: web.Request) -> web.Response:
+
+        if not self._authorized(request):
+
+            return web.json_response({"error": "unauthorized"}, status=401)
+
+        guild_id_str = request.query.get("guild_id")
+
+        count = 0
+
+        if guild_id_str:
+
+            try:
+
+                guild = self.bot.get_guild(int(guild_id_str))
+
+                if guild:
+
+                    self.bot.tree.copy_global_to(guild=guild)
+
+                    synced = await self.bot.tree.sync(guild=guild)
+
+                    count = len(synced)
+
+            except Exception as e:
+
+                logger.error("Guild sync error: %s", e)
+
+        if count == 0:
+
+            synced = await self.bot.tree.sync()
+
+            count = len(synced)
+
+        return web.json_response({"status": "ok", "synced": count})
+
+
+
     async def handle_vitals(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
             return web.json_response({"error": "unauthorized"}, status=401)
@@ -1620,8 +1648,19 @@ class WebDashboard:
                 {"id": str(vc.id), "name": vc.name}
                 for vc in guild.voice_channels
             ]
+        # Convert all snowflake IDs to strings to protect against JavaScript 53-bit integer overflow
+        safe_settings = dict(settings)
+        for id_field in [
+            "status_vc_id", "mod_log_channel_id", "audit_log_channel_id",
+            "ticket_category_id", "ticket_log_channel_id", "ticket_support_role_id",
+            "bump_channel_id", "bump_role_id", "autopromo_channel_id",
+            "vanity_role_id", "vanity_channel_id"
+        ]:
+            if safe_settings.get(id_field) is not None:
+                safe_settings[id_field] = str(safe_settings[id_field])
+
         return web.json_response({
-            "settings": settings,
+            "settings": safe_settings,
             "words": words,
             "cases": cases,
             "voice_channels": voice_channels,
@@ -1634,21 +1673,40 @@ class WebDashboard:
         data = await request.json()
         key = data.get("key")
         val = data.get("value")
-        await self.db.update_guild_setting(guild_id, key, val)
+        # Safely convert snowflake strings to integer for SQLite storage
+        clean_val = val
+        if isinstance(val, str) and val.isdigit():
+            clean_val = int(val)
+        elif val == "" or val == "0":
+            clean_val = None
+
+        await self.db.update_guild_setting(guild_id, key, clean_val)
+
+        warning_msg = None
         if key == "status_vc_id":
             status_cog = self.bot.get_cog("Status")
             guild = self.bot.get_guild(guild_id)
             if status_cog and guild:
-                try:
-                    settings = await self.db.get_guild_settings(guild_id)
-                    target_name = await status_cog.render_status_name(guild, settings, is_online=True)
-                    if val:
-                        ch = guild.get_channel(int(val))
-                        if ch:
+                if clean_val:
+                    ch = guild.get_channel(int(clean_val))
+                    if ch:
+                        try:
+                            settings = await self.db.get_guild_settings(guild_id)
+                            target_name = await status_cog.render_status_name(guild, settings, is_online=True)
                             await ch.edit(name=target_name, reason="303 kyomi  •  dashboard status vc link")
-                except Exception:
-                    pass
-        return web.json_response({"status": "ok", "key": key, "value": val})
+                        except discord.Forbidden:
+                            warning_msg = "channel saved, but bot lacks 'Manage Channels' permission to rename it"
+                        except discord.HTTPException as exc:
+                            warning_msg = f"channel saved, but discord rename rate limit active: {exc.text or exc}"
+                        except Exception as exc:
+                            logger.error("Error renaming status vc %s: %s", clean_val, exc)
+                    else:
+                        warning_msg = "channel saved, but voice channel was not found in cache"
+
+        resp_payload = {"status": "ok", "key": key, "value": clean_val}
+        if warning_msg:
+            resp_payload["warning"] = warning_msg
+        return web.json_response(resp_payload)
 
     async def handle_words(self, request: web.Request) -> web.Response:
         if not self._authorized(request):
@@ -1934,7 +1992,8 @@ class WebDashboard:
         app.router.add_get("/api/guilds", self.handle_guilds)
         app.router.add_get("/api/guild/{guild_id}", self.handle_guild_data)
         app.router.add_post("/api/guild/{guild_id}/setting", self.handle_update_setting)
-        app.router.add_post("/api/guild/{guild_id}/words", self.handle_words)
+        app.router.add_post("/api/guild/{guild_id}/words", self.handle_words)
+
         app.router.add_post("/api/sync-commands", self.handle_sync_commands)
 
         # 6 Modules Routes
