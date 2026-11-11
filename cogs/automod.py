@@ -52,6 +52,54 @@ CUTE_SUBSTITUTES = [
 ]
 
 
+CUTE_ZALGO_REGEX = re.compile(
+    r"[̀-ͯ҃-҉᷀-᷿⃐-⃿︠-︯]"
+)
+ARABIC_SCRIPT_REGEX = re.compile(
+    r"[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]"
+)
+
+
+def check_crash_flood(content: str) -> tuple[bool, str]:
+    if not content:
+        return False, ""
+
+    length = len(content)
+
+    # 1. Zalgo / Combining diacritics check
+    zalgo_matches = len(CUTE_ZALGO_REGEX.findall(content))
+    if zalgo_matches > 35 or (length > 20 and zalgo_matches / length > 0.35):
+        return True, f"zalgo / diacritical crash payload ({zalgo_matches} marks)"
+
+    # 2. Vertical line-break flood attack
+    if content.count("\n") > 25 or re.search(r"(\r?\n\s*){10,}", content):
+        return True, "vertical chat spacing flood"
+
+    # 3. Massive single character repetition
+    if re.search(r"(.)\1{45,}", content):
+        return True, "mass character repetition"
+
+    # 4. Pattern / short sequence loop
+    if re.search(r"(.{2,15})\1{12,}", content):
+        return True, "looping pattern flood"
+
+    # 5. Wall-of-text phrase repetition (like Bismillah/Zalgo raids)
+    if length >= 250:
+        words = content.split()
+        if len(words) >= 15:
+            unique_ratio = len(set(words)) / len(words)
+            if unique_ratio < 0.18:
+                return True, f"repetitive text wall raid ({int(unique_ratio * 100)}% unique words)"
+
+    # 6. Dense non-latin repeating script attack
+    arabic_chars = len(ARABIC_SCRIPT_REGEX.findall(content))
+    if arabic_chars > 250:
+        words = content.split()
+        if len(words) >= 10 and len(set(words)) / len(words) < 0.35:
+            return True, "dense script repetition flood"
+
+    return False, ""
+
 def censor_content(content: str, bad_words: list[str]) -> tuple[str, bool, list[str]]:
     if not content or not bad_words:
         return content, False, []
@@ -705,13 +753,64 @@ class AutoModCog(commands.Cog, name="AutoMod"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.guild or message.author.bot:
+        if not message.guild:
             return
-        if not isinstance(message.author, discord.Member):
+        # Never filter 303 KYOMI's own messages/relays
+        if message.author.id == self.bot.user.id:
             return
 
         settings = await self.bot.db.get_guild_settings(message.guild.id)
         if not settings.get("automod_enabled", 1):
+            return
+
+        # --- 0. CRASH-TEXT, ZALGO & MASS UNICODE FLOODGUARD ---
+        # Intercepts raid payloads from ANY source (including user-apps, webhooks, and bots!)
+        is_crash, crash_reason = check_crash_flood(message.content)
+        if is_crash:
+            self.automod_deleted_ids.append(message.id)
+            try:
+                await message.delete()
+            except discord.HTTPException:
+                pass
+
+            # Timeout member if not an immune administrator
+            if isinstance(message.author, discord.Member):
+                if not message.author.guild_permissions.administrator:
+                    try:
+                        await message.author.timeout(
+                            datetime.timedelta(hours=1),
+                            reason=f"automod (crash shield): {crash_reason}",
+                        )
+                    except discord.HTTPException:
+                        pass
+
+            try:
+                notice = kyomi_embed(
+                    description=f"{message.author.mention} — *intercepted crash text / unicode flood ({crash_reason})*",
+                    color=COLOR_CRIMSON,
+                    tag="303  •  crash shield",
+                )
+                await message.channel.send(embed=notice, delete_after=5)
+            except discord.HTTPException:
+                pass
+
+            mod_cog = self.bot.get_cog("Moderation")
+            if mod_cog and hasattr(mod_cog, "send_mod_log"):
+                await mod_cog.send_mod_log(
+                    guild=message.guild,
+                    action="automod · crash shield",
+                    target=message.author,
+                    moderator=message.guild.me,
+                    reason=(
+                        f"intercepted crash payload / text wall ({crash_reason}) in {message.channel.mention}\n"
+                        f"╰ sample: `{message.content[:150]}...`"
+                    ),
+                    color=COLOR_CRIMSON,
+                )
+            return
+
+        # If sent by another bot/webhook and not a crash text, stop here
+        if message.author.bot or not isinstance(message.author, discord.Member):
             return
 
         # 1. Swear Word Filter & Cute Word Substitution (NO STAFF BYPASS — Applies to EVERYONE!)

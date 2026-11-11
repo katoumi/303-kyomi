@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import discord
 from discord import app_commands
@@ -293,6 +294,42 @@ class ModerationCog(commands.Cog, name="Moderation"):
             tag="303  •  unmute",
         )
         await interaction.response.send_message(embed=embed)
+
+    @commands.command(name="purge", aliases=["clear", "clean"])
+    @commands.has_permissions(manage_messages=True)
+    @commands.guild_only()
+    async def purge_prefix(
+        self,
+        ctx: commands.Context,
+        amount: int = 50,
+        member: discord.Member | None = None,
+    ):
+        if not isinstance(ctx.channel, discord.TextChannel):
+            return
+        try:
+            await ctx.message.delete()
+        except discord.HTTPException:
+            pass
+
+        limit = max(1, min(amount, 100))
+        check = (lambda m: m.author.id == member.id) if member else (lambda m: True)
+        deleted = await ctx.channel.purge(limit=limit, check=check)
+
+        scope = f"from {member.mention}" if member else "in total"
+        await self.send_mod_log(
+            ctx.guild,
+            "purge",
+            member or ctx.author,
+            ctx.author,
+            f"deleted {len(deleted)} messages {scope} in {ctx.channel.mention}",
+            color=COLOR_OBSIDIAN,
+        )
+        msg = await ctx.send(f"*cleaned up **`{len(deleted)}`** messages {scope}.*")
+        try:
+            await asyncio.sleep(4)
+            await msg.delete()
+        except Exception:
+            pass
 
     @app_commands.command(
         name="purge", description="clean up messages in this channel."
