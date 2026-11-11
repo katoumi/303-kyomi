@@ -1716,7 +1716,8 @@ class WebDashboard:
         action = data.get("action")
         word = data.get("word")
         if action == "add" and word:
-            await self.db.add_bad_word(guild_id, word)
+            for w in [item.strip() for item in re.split(r"[,]+", word) if item.strip()]:
+                await self.db.add_bad_word(guild_id, w)
         elif action == "remove" and word:
             await self.db.remove_bad_word(guild_id, word)
         words = await self.db.get_bad_words(guild_id)

@@ -501,12 +501,13 @@ class AutoModCog(commands.Cog, name="AutoMod"):
         await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
     @automod_group.command(
-        name="addword", description="add a word to the chat filter."
+        name="addword", description="add word(s) to the chat filter (supports comma-separated list)."
     )
     async def add_word(self, interaction: discord.Interaction, word: str):
         assert interaction.guild is not None
         await interaction.response.defer(ephemeral=True)
-        await self.bot.db.add_bad_word(interaction.guild.id, word)
+        for w in [item.strip() for item in re.split(r"[,]+", word) if item.strip()]:
+            await self.bot.db.add_bad_word(interaction.guild.id, w)
         view = await self.build_hud_view(interaction.guild)
         await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
