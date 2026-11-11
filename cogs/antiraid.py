@@ -1,3 +1,4 @@
+import asyncio
 import collections
 import datetime
 import time
@@ -301,6 +302,13 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
         # guild_id -> list of channel IDs locked during panic mode
         self.locked_channels: dict[int, list[int]] = {}
         self.last_raid_trigger: dict[int, float] = {}
+        # (guild_id, user_id) -> deque of deletion timestamps
+        self.channel_delete_tracker: dict[tuple[int, int], collections.deque[float]] = (
+            collections.defaultdict(lambda: collections.deque(maxlen=10))
+        )
+        self.role_delete_tracker: dict[tuple[int, int], collections.deque[float]] = (
+            collections.defaultdict(lambda: collections.deque(maxlen=10))
+        )
 
     async def build_hud_view(
         self, guild: discord.Guild
@@ -376,6 +384,128 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
                     pass
         return restored
 
+    async def _strip_dangerous_roles(self, member: discord.Member, reason: str) -> list[str]:
+        guild = member.guild
+        dangerous_perms = (
+            "administrator",
+            "manage_guild",
+            "manage_channels",
+            "manage_roles",
+            "ban_members",
+            "kick_members",
+            "manage_webhooks",
+        )
+        stripped = []
+        roles_to_remove = []
+        for r in member.roles:
+            if r == guild.default_role or r >= guild.me.top_role:
+                continue
+            if any(getattr(r.permissions, p, False) for p in dangerous_perms):
+                roles_to_remove.append(r)
+                stripped.append(r.name)
+
+        if roles_to_remove:
+            try:
+                await member.remove_roles(*roles_to_remove, reason=reason)
+            except discord.HTTPException:
+                pass
+        return stripped
+
+    async def _handle_bot_add(self, bot_member: discord.Member):
+        guild = bot_member.guild
+        await asyncio.sleep(0.5)
+
+        inviter: discord.Member | discord.User | None = None
+        try:
+            async for entry in guild.audit_logs(limit=4, action=discord.AuditLogAction.bot_add):
+                if entry.target and entry.target.id == bot_member.id:
+                    inviter = entry.user
+                    break
+        except discord.HTTPException:
+            pass
+
+        # If Server Owner invited the bot, allow it
+        if inviter and inviter.id == guild.owner_id:
+            return
+
+        # UNAUTHORIZED BOT DETECTED!
+        inviter_name = f"{inviter} ({inviter.id})" if inviter else "unknown user"
+        ban_reason = f"303 anti-nuke: unauthorized bot invited by {inviter_name}"
+        try:
+            await bot_member.ban(reason=ban_reason)
+        except discord.HTTPException:
+            try:
+                await bot_member.kick(reason=ban_reason)
+            except discord.HTTPException:
+                pass
+
+        stripped_roles = []
+        if isinstance(inviter, discord.Member) and inviter.id != guild.owner_id:
+            stripped_roles = await self._strip_dangerous_roles(
+                inviter, reason="303 anti-nuke: unauthorized bot invitation"
+            )
+            try:
+                await inviter.timeout(
+                    datetime.timedelta(days=7),
+                    reason="303 anti-nuke: unauthorized bot invitation",
+                )
+            except discord.HTTPException:
+                pass
+
+        mod_cog = self.bot.get_cog("Moderation")
+        if mod_cog and hasattr(mod_cog, "send_mod_log"):
+            roles_text = f" Stripped roles: {', '.join(stripped_roles)}." if stripped_roles else ""
+            await mod_cog.send_mod_log(
+                guild,
+                "anti-nuke · rogue bot blocked",
+                bot_member,
+                guild.me,
+                (
+                    f"banned unauthorized bot `{bot_member.name}` ({bot_member.id}).\n"
+                    f"╰ invited by: {inviter.mention if inviter else 'unknown'}.{roles_text}"
+                ),
+                color=COLOR_CRIMSON,
+            )
+
+    async def _handle_nuke_attack(
+        self, guild: discord.Guild, attacker: discord.Member | discord.User, attack_type: str, detail: str
+    ):
+        stripped = []
+        if isinstance(attacker, discord.Member):
+            stripped = await self._strip_dangerous_roles(
+                attacker, reason=f"303 anti-nuke: {attack_type}"
+            )
+            try:
+                await attacker.timeout(
+                    datetime.timedelta(days=28),
+                    reason=f"303 anti-nuke: {attack_type}",
+                )
+            except discord.HTTPException:
+                pass
+
+        locked_count = await self.trigger_server_lockdown(
+            guild, reason=f"emergency anti-nuke: {attack_type} by {attacker}"
+        )
+
+        mod_cog = self.bot.get_cog("Moderation")
+        if mod_cog and hasattr(mod_cog, "send_mod_log"):
+            roles_text = f"\n╰ **stripped roles:** {', '.join(stripped)}" if stripped else ""
+            owner_mention = f"<@{guild.owner_id}>"
+            await mod_cog.send_mod_log(
+                guild,
+                "🚨 EMERGENCY · ANTI-NUKE TRIGGERED",
+                attacker,
+                guild.me,
+                (
+                    f"**MASS ATTACK NEUTRALIZED**\n"
+                    f"╰ **attacker:** {attacker.mention} ({attacker.id})\n"
+                    f"╰ **type:** {attack_type} ({detail})\n"
+                    f"╰ **actions taken:** admin/mod roles stripped, 28-day timeout, {locked_count} channels locked.\n"
+                    f"╰ **owner alert:** {owner_mention}{roles_text}"
+                ),
+                color=COLOR_CRIMSON,
+            )
+
     async def _punish_raider(
         self, guild: discord.Guild, member: discord.Member, action: str, reason: str
     ) -> None:
@@ -395,6 +525,7 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
     async def on_member_join(self, member: discord.Member):
         guild = member.guild
         if member.bot:
+            await self._handle_bot_add(member)
             return
 
         settings = await self.bot.db.get_guild_settings(guild.id)
@@ -501,6 +632,260 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
                             )
                         except discord.HTTPException:
                             pass
+
+
+
+    # --- ROGUE WEBHOOK AUTO-DESTRUCT ---
+
+    @commands.Cog.listener()
+
+    async def on_webhooks_update(self, channel: discord.abc.GuildChannel):
+
+        guild = channel.guild
+
+        if not guild:
+
+            return
+
+
+
+        await asyncio.sleep(0.5)
+
+        try:
+
+            async for entry in guild.audit_logs(limit=3, action=discord.AuditLogAction.webhook_create):
+
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+                if (now_utc - entry.created_at).total_seconds() > 6:
+
+                    continue
+
+
+
+                creator = entry.user
+
+                if not creator or creator.id == guild.owner_id or creator.id == self.bot.user.id:
+
+                    continue
+
+
+
+                # UNAUTHORIZED WEBHOOK CREATED
+
+                if isinstance(channel, discord.TextChannel):
+
+                    try:
+
+                        hooks = await channel.webhooks()
+
+                        for wh in hooks:
+
+                            if wh.id == entry.target.id or (entry.extra and getattr(entry.extra, "id", None) == wh.id):
+
+                                await wh.delete(reason=f"303 anti-nuke: rogue webhook created by {creator}")
+
+                                break
+
+                    except Exception:
+
+                        pass
+
+
+
+                if isinstance(creator, discord.Member):
+
+                    try:
+
+                        await creator.timeout(
+
+                            datetime.timedelta(hours=2),
+
+                            reason="303 anti-nuke: unauthorized webhook creation",
+
+                        )
+
+                    except discord.HTTPException:
+
+                        pass
+
+                    await self._strip_dangerous_roles(
+
+                        creator, reason="303 anti-nuke: unauthorized webhook creation"
+
+                    )
+
+
+
+                mod_cog = self.bot.get_cog("Moderation")
+
+                if mod_cog and hasattr(mod_cog, "send_mod_log"):
+
+                    wh_name = entry.target.name if entry.target else "unknown"
+
+                    await mod_cog.send_mod_log(
+
+                        guild,
+
+                        "anti-nuke · webhook auto-destruct",
+
+                        creator,
+
+                        guild.me,
+
+                        f"auto-destroyed rogue webhook `{wh_name}` in {channel.mention}.\n╰ created by: {creator.mention} ({creator.id})",
+
+                        color=COLOR_CRIMSON,
+
+                    )
+
+                break
+
+        except discord.HTTPException:
+
+            pass
+
+
+
+    # --- MASS CHANNEL DELETION SHIELD ---
+
+    @commands.Cog.listener()
+
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+
+        guild = channel.guild
+
+        if not guild:
+
+            return
+
+
+
+        await asyncio.sleep(0.5)
+
+        try:
+
+            async for entry in guild.audit_logs(limit=3, action=discord.AuditLogAction.channel_delete):
+
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+                if (now_utc - entry.created_at).total_seconds() > 6:
+
+                    continue
+
+
+
+                deleter = entry.user
+
+                if not deleter or deleter.id == guild.owner_id or deleter.id == self.bot.user.id:
+
+                    continue
+
+
+
+                now_mono = time.monotonic()
+
+                key = (guild.id, deleter.id)
+
+                tracker = self.channel_delete_tracker[key]
+
+                tracker.append(now_mono)
+
+
+
+                while tracker and now_mono - tracker[0] > 10.0:
+
+                    tracker.popleft()
+
+
+
+                if len(tracker) >= 3:
+
+                    tracker.clear()
+
+                    await self._handle_nuke_attack(
+
+                        guild, deleter, attack_type="mass channel deletion", detail=f"{len(tracker)+1} channels in 10s"
+
+                    )
+
+                break
+
+        except discord.HTTPException:
+
+            pass
+
+
+
+    # --- MASS ROLE DELETION SHIELD ---
+
+    @commands.Cog.listener()
+
+    async def on_guild_role_delete(self, role: discord.Role):
+
+        guild = role.guild
+
+        if not guild:
+
+            return
+
+
+
+        await asyncio.sleep(0.5)
+
+        try:
+
+            async for entry in guild.audit_logs(limit=3, action=discord.AuditLogAction.role_delete):
+
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+
+                if (now_utc - entry.created_at).total_seconds() > 6:
+
+                    continue
+
+
+
+                deleter = entry.user
+
+                if not deleter or deleter.id == guild.owner_id or deleter.id == self.bot.user.id:
+
+                    continue
+
+
+
+                now_mono = time.monotonic()
+
+                key = (guild.id, deleter.id)
+
+                tracker = self.role_delete_tracker[key]
+
+                tracker.append(now_mono)
+
+
+
+                while tracker and now_mono - tracker[0] > 10.0:
+
+                    tracker.popleft()
+
+
+
+                if len(tracker) >= 3:
+
+                    tracker.clear()
+
+                    await self._handle_nuke_attack(
+
+                        guild, deleter, attack_type="mass role deletion", detail=f"{len(tracker)+1} roles in 10s"
+
+                    )
+
+                break
+
+        except discord.HTTPException:
+
+            pass
+
+
 
     antiraid_group = app_commands.Group(
         name="antiraid",
