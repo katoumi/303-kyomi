@@ -65,37 +65,36 @@ def check_crash_flood(content: str) -> tuple[bool, str]:
         return False, ""
 
     length = len(content)
+    words = content.split()
+    word_count = len(words)
 
     # 1. Zalgo / Combining diacritics check
     zalgo_matches = len(CUTE_ZALGO_REGEX.findall(content))
-    if zalgo_matches > 35 or (length > 20 and zalgo_matches / length > 0.35):
+    if zalgo_matches > 40 or (length > 20 and zalgo_matches / length > 0.40):
         return True, f"zalgo / diacritical crash payload ({zalgo_matches} marks)"
 
-    # 2. Vertical line-break flood attack
-    if content.count("\n") > 25 or re.search(r"(\r?\n\s*){10,}", content):
+    # 2. Vertical line-break flood attack (only flag if blank space with very few words)
+    if (content.count("\n") > 40 and word_count < 25) or (re.search(r"(\r?\n\s*){12,}", content) and word_count < 20):
         return True, "vertical chat spacing flood"
 
-    # 3. Massive single character repetition
-    if re.search(r"(.)\1{45,}", content):
+    # 3. Massive single character repetition (exclude markdown dividers like -, _, =, ~, *)
+    if re.search(r"([^\-_=\*\s])\1{45,}", content):
         return True, "mass character repetition"
 
-    # 4. Pattern / short sequence loop
-    if re.search(r"(.{2,15})\1{12,}", content):
+    # 4. Pattern / short sequence loop (exclude markdown dividers like repeated underscores)
+    if re.search(r"([^\-_=\*\s]{2,15})\1{14,}", content):
         return True, "looping pattern flood"
 
     # 5. Wall-of-text phrase repetition (like Bismillah/Zalgo raids)
-    if length >= 250:
-        words = content.split()
-        if len(words) >= 15:
-            unique_ratio = len(set(words)) / len(words)
-            if unique_ratio < 0.18:
-                return True, f"repetitive text wall raid ({int(unique_ratio * 100)}% unique words)"
+    if length >= 300 and word_count >= 15:
+        unique_ratio = len(set(words)) / word_count
+        if unique_ratio < 0.16:
+            return True, f"repetitive text wall raid ({int(unique_ratio * 100)}% unique words)"
 
     # 6. Dense non-latin repeating script attack
     arabic_chars = len(ARABIC_SCRIPT_REGEX.findall(content))
-    if arabic_chars > 250:
-        words = content.split()
-        if len(words) >= 10 and len(set(words)) / len(words) < 0.35:
+    if arabic_chars > 300 and word_count >= 10:
+        if len(set(words)) / word_count < 0.30:
             return True, "dense script repetition flood"
 
     return False, ""
@@ -765,8 +764,24 @@ class AutoModCog(commands.Cog, name="AutoMod"):
             return
 
         # --- 0. CRASH-TEXT, ZALGO & MASS UNICODE FLOODGUARD ---
-        # Intercepts raid payloads from ANY source (including user-apps, webhooks, and bots!)
-        is_crash, crash_reason = check_crash_flood(message.content)
+        # Staff/Admins are ALWAYS exempt so formatted announcements, rules, and updates never get blocked
+        is_staff = isinstance(message.author, discord.Member) and (
+            message.author.guild_permissions.administrator
+            or message.author.guild_permissions.manage_messages
+            or message.author.id == message.guild.owner_id
+        )
+
+        is_announcement_channel = (
+            getattr(message.channel, "type", None) == discord.ChannelType.news
+            or "announce" in getattr(message.channel, "name", "").lower()
+            or "rule" in getattr(message.channel, "name", "").lower()
+        )
+
+        # Intercepts raid payloads from non-staff sources (user-apps, webhooks, rogue bots, raiders)
+        is_crash = False
+        crash_reason = ""
+        if not is_staff and not is_announcement_channel:
+            is_crash, crash_reason = check_crash_flood(message.content)
         if is_crash:
             self.automod_deleted_ids.append(message.id)
             try:
