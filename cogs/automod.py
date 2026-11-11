@@ -1,6 +1,7 @@
 import collections
 import datetime
 import hashlib
+import random
 import re
 import time
 import discord
@@ -18,6 +19,62 @@ INVITE_REGEX = re.compile(
     re.IGNORECASE,
 )
 URL_REGEX = re.compile(r"https?://[^\s/$.?#].[^\s]*", re.IGNORECASE)
+
+CUTE_SUBSTITUTES = [
+    "cupcake",
+    "marshmallow",
+    "sunshine",
+    "pancake",
+    "sparkle",
+    "kitten",
+    "bunny",
+    "cookie",
+    "honey",
+    "cloud",
+    "bubble",
+    "berry",
+    "pebble",
+    "puppy",
+    "cotton",
+    "ribbon",
+    "petal",
+    "meow",
+    "star",
+    "flower",
+    "buttercup",
+    "sweetheart",
+    "jellybean",
+    "muffin",
+    "dandelion",
+    "clover",
+    "snowflake",
+    "starlight",
+]
+
+
+def censor_content(content: str, bad_words: list[str]) -> tuple[str, bool, list[str]]:
+    if not content or not bad_words:
+        return content, False, []
+
+    matched_words = []
+    censored = content
+    sorted_words = sorted([w for w in bad_words if w], key=len, reverse=True)
+
+    for word in sorted_words:
+        pattern_boundary = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
+        if pattern_boundary.search(censored):
+            matched_words.append(word)
+            def _repl_b(m):
+                return f"*{random.choice(CUTE_SUBSTITUTES)}*"
+            censored = pattern_boundary.sub(_repl_b, censored)
+        elif word.lower() in censored.lower():
+            matched_words.append(word)
+            pattern_sub = re.compile(re.escape(word), re.IGNORECASE)
+            def _repl_s(m):
+                return f"*{random.choice(CUTE_SUBSTITUTES)}*"
+            censored = pattern_sub.sub(_repl_s, censored)
+
+    return censored, bool(matched_words), matched_words
 
 
 class AddWordModal(discord.ui.Modal, title="303  •  block word"):
@@ -415,6 +472,81 @@ class AutoModCog(commands.Cog, name="AutoMod"):
         view = await self.build_hud_view(interaction.guild)
         await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
+    async def _substitute_and_relay(
+        self, message: discord.Message, new_content: str, matched_words: list[str]
+    ) -> None:
+        channel = message.channel
+        guild = message.guild
+        if not isinstance(channel, discord.TextChannel) or not guild:
+            return
+
+        self.automod_deleted_ids.append(message.id)
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
+
+        # Use webhook to repost seamlessly with the author's avatar & name
+        webhook: discord.Webhook | None = None
+        if channel.permissions_for(guild.me).manage_webhooks:
+            try:
+                hooks = await channel.webhooks()
+                for wh in hooks:
+                    if wh.user == self.bot.user:
+                        webhook = wh
+                        break
+                if not webhook:
+                    webhook = await channel.create_webhook(name="303-kyomi-relay")
+            except Exception:
+                webhook = None
+
+        files = []
+        if message.attachments:
+            for att in message.attachments:
+                try:
+                    files.append(await att.to_file())
+                except Exception:
+                    pass
+
+        sent_ok = False
+        if webhook:
+            try:
+                await webhook.send(
+                    content=new_content,
+                    username=message.author.display_name,
+                    avatar_url=message.author.display_avatar.url,
+                    files=files,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+                sent_ok = True
+            except discord.HTTPException:
+                sent_ok = False
+
+        if not sent_ok:
+            try:
+                await channel.send(
+                    f"**{message.author.display_name}**: {new_content}",
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+            except discord.HTTPException:
+                pass
+
+        # Log quietly to mod logs channel if configured
+        mod_cog = self.bot.get_cog("Moderation")
+        if mod_cog and hasattr(mod_cog, "send_mod_log"):
+            words_str = ", ".join(f"`{w}`" for w in set(matched_words))
+            await mod_cog.send_mod_log(
+                guild=guild,
+                action="filter · substituted",
+                target=message.author,
+                moderator=guild.me,
+                reason=(
+                    f"substituted swear words ({words_str}) in {channel.mention}\n"
+                    f"╰ original: `{message.content[:200]}`"
+                ),
+                color=COLOR_AMBER,
+            )
+
     async def _handle_violation(
         self,
         message: discord.Message,
@@ -578,27 +710,26 @@ class AutoModCog(commands.Cog, name="AutoMod"):
         if not isinstance(message.author, discord.Member):
             return
 
+        settings = await self.bot.db.get_guild_settings(message.guild.id)
+        if not settings.get("automod_enabled", 1):
+            return
+
+        # 1. Swear Word Filter & Cute Word Substitution (NO STAFF BYPASS — Applies to EVERYONE!)
+        bad_words = await self.bot.db.get_bad_words(message.guild.id)
+        if bad_words and message.content:
+            censored_content, was_filtered, matched = censor_content(message.content, bad_words)
+            if was_filtered:
+                await self._substitute_and_relay(message, censored_content, matched)
+                return
+
+        # Staff exemption for remaining automod modules (invites, external links, mass pings, velocity spam)
         if (
             message.author.guild_permissions.administrator
             or message.author.guild_permissions.manage_messages
         ):
             return
 
-        settings = await self.bot.db.get_guild_settings(message.guild.id)
-        if not settings.get("automod_enabled", 1):
-            return
-
         content_lower = message.content.lower().strip()
-
-        # 1. Blocked words check
-        bad_words = await self.bot.db.get_bad_words(message.guild.id)
-        for word in bad_words:
-            pattern = rf"\b{re.escape(word)}\b"
-            if re.search(pattern, content_lower) or word in content_lower:
-                await self._handle_violation(
-                    message, "filter", f"watch your language (`{word}`)"
-                )
-                return
 
         # 2. Invite links check
         if settings.get("block_invites", 1) and INVITE_REGEX.search(message.content):
