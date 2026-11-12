@@ -562,38 +562,48 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
 
         settings = await self.bot.db.get_guild_settings(guild.id)
         # 0. No-Avatar Gate check (runs independently whenever its own toggle is ON; only new joins)
-        if settings.get("antiraid_block_no_avatar", 1) and member.avatar is None:
+        if settings.get("antiraid_block_no_avatar", 1) and member.avatar is None and member.guild_avatar is None:
+            # Double-check directly via REST API so stale Discord gateway cache never false-kicks
+            has_fresh_avatar = False
             try:
-                dm = kyomi_embed(
-                    description=(
-                        f"entry blocked in **{guild.name.lower()}**\n"
-                        f"╰ **reason:** accounts without a profile picture are not permitted. please set an avatar and rejoin."
-                    ),
-                    color=COLOR_AMBER,
-                    tag="303  •  anti-raid",
-                    guild=guild,
-                )
-                await member.send(embed=dm)
+                fresh_user = await self.bot.fetch_user(member.id)
+                if fresh_user and fresh_user.avatar is not None:
+                    has_fresh_avatar = True
             except discord.HTTPException:
                 pass
 
-            await self._punish_raider(
-                guild,
-                member,
-                "kick",
-                "303 anti-raid: new join has no profile picture",
-            )
-            mod_cog = self.bot.get_cog("Moderation")
-            if mod_cog and hasattr(mod_cog, "send_mod_log"):
-                await mod_cog.send_mod_log(
+            if not has_fresh_avatar:
+                try:
+                    dm = kyomi_embed(
+                        description=(
+                            f"entry blocked in **{guild.name.lower()}**\n"
+                            f"╰ **reason:** accounts without a profile picture are not permitted. please set an avatar and rejoin."
+                        ),
+                        color=COLOR_AMBER,
+                        tag="303  •  anti-raid",
+                        guild=guild,
+                    )
+                    await member.send(embed=dm)
+                except discord.HTTPException:
+                    pass
+
+                await self._punish_raider(
                     guild,
-                    "anti-raid · no-avatar gate",
                     member,
-                    guild.me,
-                    "kicked new join without a profile picture (default discord icon)",
-                    color=COLOR_AMBER,
+                    "kick",
+                    "303 anti-raid: new join has no profile picture",
                 )
-            return
+                mod_cog = self.bot.get_cog("Moderation")
+                if mod_cog and hasattr(mod_cog, "send_mod_log"):
+                    await mod_cog.send_mod_log(
+                        guild,
+                        "anti-raid · no-avatar gate",
+                        member,
+                        guild.me,
+                        "kicked new join without a profile picture (default discord icon)",
+                        color=COLOR_AMBER,
+                    )
+                return
 
         if not settings.get("antiraid_enabled", 1):
             return
