@@ -548,6 +548,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
           <div class="toggle-row">
             <div>
+              <div class="toggle-name">no-avatar ingress gate</div>
+              <div class="toggle-sub">auto-kicks new joins without a discord profile picture</div>
+            </div>
+            <label class="smooth-switch">
+              <input type="checkbox" id="sw_no_avatar" onchange="toggleSetting('antiraid_block_no_avatar', this.checked)">
+              <span class="switch-track"></span>
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <div>
               <div class="toggle-name">anti-ghostping guard</div>
               <div class="toggle-sub">detects and logs deleted messages containing mentions</div>
             </div>
@@ -958,7 +969,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
         document.getElementById("sw_automod").checked = s.automod_enabled !== 0;
         document.getElementById("sw_antispam").checked = s.anti_spam_enabled !== 0;
-        document.getElementById("sw_antiraid").checked = s.antiraid_enabled !== 0;
+        document.getElementById("sw_antiraid").checked = s.antiraid_enabled !== 0;
+        document.getElementById("sw_no_avatar").checked = s.antiraid_block_no_avatar !== 0;
         document.getElementById("sw_ghostping").checked = s.ghostping_enabled !== 0;
         document.getElementById("sw_invites").checked = s.block_invites !== 0;
         document.getElementById("sw_links").checked = s.block_links !== 0;

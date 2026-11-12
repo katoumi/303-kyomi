@@ -177,6 +177,7 @@ class AntiRaidFloatingHUD(discord.ui.View):
         self.settings = settings
 
         enabled = bool(settings.get("antiraid_enabled", 1))
+        no_avatar = bool(settings.get("antiraid_block_no_avatar", 1))
         locked = guild.id in cog.locked_channels and bool(
             cog.locked_channels[guild.id]
         )
@@ -199,6 +200,13 @@ class AntiRaidFloatingHUD(discord.ui.View):
             else discord.ButtonStyle.secondary
         )
 
+        self.btn_no_avatar.label = f"{'●' if no_avatar else '○'} no-avatar gate: {'on' if no_avatar else 'off'}"
+        self.btn_no_avatar.style = (
+            discord.ButtonStyle.primary
+            if no_avatar
+            else discord.ButtonStyle.secondary
+        )
+
         self.add_item(RaidThresholdSelect(cog, settings))
         self.add_item(AccountAgeGateSelect(cog, settings))
         self.add_item(RaidActionSelect(cog, settings))
@@ -215,6 +223,18 @@ class AntiRaidFloatingHUD(discord.ui.View):
         view = await self.cog.build_hud_view(interaction.guild)
         await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
 
+    @discord.ui.button(label="no-avatar gate", row=0)
+    async def btn_no_avatar(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        assert interaction.guild is not None
+        cur = int(bool(self.settings.get("antiraid_block_no_avatar", 1)))
+        await self.cog.bot.db.update_guild_setting(
+            interaction.guild.id, "antiraid_block_no_avatar", 0 if cur else 1
+        )
+        view = await self.cog.build_hud_view(interaction.guild)
+        await interaction.response.edit_message(content="`303  •  anti-raid`", embed=None, view=view)
+
     @discord.ui.button(label="panic lockdown", row=0)
     async def btn_lockdown(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -537,6 +557,40 @@ class AntiRaidCog(commands.Cog, name="AntiRaid"):
         now_utc = datetime.datetime.now(datetime.timezone.utc)
         account_age_days = (now_utc - member.created_at).days
 
+        # 0. No-Avatar Gate check (ONLY checks new joins; existing members untouched)
+        if settings.get("antiraid_block_no_avatar", 1) and member.avatar is None:
+            try:
+                dm = kyomi_embed(
+                    description=(
+                        f"entry blocked in **{guild.name.lower()}**\n"
+                        f"╰ **reason:** accounts without a profile picture are not permitted. please set an avatar and rejoin."
+                    ),
+                    color=COLOR_AMBER,
+                    tag="303  •  anti-raid",
+                    guild=guild,
+                )
+                await member.send(embed=dm)
+            except discord.HTTPException:
+                pass
+
+            await self._punish_raider(
+                guild,
+                member,
+                "kick",
+                "303 anti-raid: new join has no profile picture",
+            )
+            mod_cog = self.bot.get_cog("Moderation")
+            if mod_cog and hasattr(mod_cog, "send_mod_log"):
+                await mod_cog.send_mod_log(
+                    guild,
+                    "anti-raid · no-avatar gate",
+                    member,
+                    guild.me,
+                    "kicked new join without a profile picture (default discord icon)",
+                    color=COLOR_AMBER,
+                )
+            return
+
         # 1. Account Age Gate check
         if min_days > 0 and account_age_days < min_days:
             try:
