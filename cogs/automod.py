@@ -68,30 +68,31 @@ def check_crash_flood(content: str) -> tuple[bool, str]:
     words = content.split()
     word_count = len(words)
 
-    # 1. Zalgo / Combining diacritics check
+    # 1. Zalgo / Combining diacritics check (Unicode crash payload)
     zalgo_matches = len(CUTE_ZALGO_REGEX.findall(content))
-    if zalgo_matches > 40 or (length > 20 and zalgo_matches / length > 0.40):
+    if zalgo_matches > 45 or (length > 25 and zalgo_matches / length > 0.40):
         return True, f"zalgo / diacritical crash payload ({zalgo_matches} marks)"
 
-    # 2. Vertical line-break flood attack (only flag if blank space with very few words)
-    if (content.count("\n") > 40 and word_count < 25) or (re.search(r"(\r?\n\s*){12,}", content) and word_count < 20):
+    # Allow normal hype/laughter/chat messages under 350 chars without false positives
+    if length < 350 and content.count("\n") < 40:
+        return False, ""
+
+    # 2. Vertical line-break flood attack (blank space spam with almost no substantive text)
+    if (content.count("\n") > 45 and word_count < 20) or (re.search(r"(\r?\n\s*){15,}", content) and word_count < 15):
         return True, "vertical chat spacing flood"
 
-    # 3. Massive single character repetition (exclude markdown dividers like -, _, =, ~, *)
-    if re.search(r"([^\-_=\*\s])\1{45,}", content):
-        return True, "mass character repetition"
+    # 3. Massive wall-of-text phrase repetition (e.g. Bismillah / copypasta spam raids)
+    if length >= 400:
+        if word_count >= 20:
+            unique_ratio = len(set(words)) / word_count
+            if unique_ratio < 0.16:
+                return True, f"repetitive text wall raid ({int(unique_ratio * 100)}% unique words)"
+        else:
+            # Extreme single-string character flood (>400 chars with <15 unique chars, excluding URLs)
+            if "http" not in content.lower() and len(set(content)) < 15:
+                return True, "massive character/symbol flood"
 
-    # 4. Pattern / short sequence loop (exclude markdown dividers like repeated underscores)
-    if re.search(r"([^\-_=\*\s]{2,15})\1{14,}", content):
-        return True, "looping pattern flood"
-
-    # 5. Wall-of-text phrase repetition (like Bismillah/Zalgo raids)
-    if length >= 300 and word_count >= 15:
-        unique_ratio = len(set(words)) / word_count
-        if unique_ratio < 0.16:
-            return True, f"repetitive text wall raid ({int(unique_ratio * 100)}% unique words)"
-
-    # 6. Dense non-latin repeating script attack
+    # 4. Dense non-latin repeating script attack
     arabic_chars = len(ARABIC_SCRIPT_REGEX.findall(content))
     if arabic_chars > 300 and word_count >= 10:
         if len(set(words)) / word_count < 0.30:
