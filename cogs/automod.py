@@ -106,21 +106,22 @@ def censor_content(content: str, bad_words: list[str]) -> tuple[str, bool, list[
 
     matched_words = []
     censored = content
-    sorted_words = sorted([w for w in bad_words if w], key=len, reverse=True)
+    sorted_words = sorted([w.strip() for w in bad_words if w and w.strip()], key=len, reverse=True)
 
     for word in sorted_words:
-        pattern_boundary = re.compile(rf"\b{re.escape(word)}\b", re.IGNORECASE)
-        if pattern_boundary.search(censored):
+        # Support explicit *substring* wildcard only when user intentionally wraps with *
+        if len(word) > 2 and word.startswith("*") and word.endswith("*"):
+            inner = word[1:-1]
+            pattern = re.compile(re.escape(inner), re.IGNORECASE)
+        else:
+            # Strict word-boundary matching prevents false positives inside normal words
+            # (e.g. "class", "hello", "document", "reputation", "night") while still
+            # catching standalone words and symbol-prefixed bypasses like "$hit" or "f.u.c.k"
+            pattern = re.compile(rf"(?<!\w){re.escape(word)}(?!\w)", re.IGNORECASE)
+
+        if pattern.search(censored):
             matched_words.append(word)
-            def _repl_b(m):
-                return f"*{random.choice(CUTE_SUBSTITUTES)}*"
-            censored = pattern_boundary.sub(_repl_b, censored)
-        elif word.lower() in censored.lower():
-            matched_words.append(word)
-            pattern_sub = re.compile(re.escape(word), re.IGNORECASE)
-            def _repl_s(m):
-                return f"*{random.choice(CUTE_SUBSTITUTES)}*"
-            censored = pattern_sub.sub(_repl_s, censored)
+            censored = pattern.sub(lambda _m: f"*{random.choice(CUTE_SUBSTITUTES)}*", censored)
 
     return censored, bool(matched_words), matched_words
 
