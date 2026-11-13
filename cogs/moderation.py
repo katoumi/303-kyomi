@@ -32,12 +32,18 @@ class ModerationCog(commands.Cog, name="Moderation"):
             guild.id, action.lower(), target.id, moderator.id, reason
         )
         settings = await self.bot.db.get_guild_settings(guild.id)
-        channel_id = settings.get("mod_log_channel_id")
+        channel_id = settings.get("mod_log_channel_id") or settings.get("audit_log_channel_id")
         if not channel_id:
             return case_id
 
         channel = guild.get_channel(channel_id)
-        if not isinstance(channel, discord.TextChannel):
+        if not channel:
+            try:
+                channel = await guild.fetch_channel(channel_id)
+            except Exception:
+                channel = None
+
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
             return case_id
 
         target_display = (
@@ -66,7 +72,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
 
         try:
             await channel.send(embed=embed)
-        except discord.Forbidden:
+        except (discord.Forbidden, discord.HTTPException):
             pass
         return case_id
 
@@ -104,6 +110,8 @@ class ModerationCog(commands.Cog, name="Moderation"):
             return await interaction.response.send_message(err, ephemeral=True)
 
         assert interaction.guild is not None
+        await interaction.response.defer()
+
         try:
             dm = kyomi_embed(
                 description=f"you were kicked from **{interaction.guild.name.lower()}**\n╰ **reason:** {reason}",
@@ -111,11 +119,21 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 tag="303  •  kicked",
                 guild=interaction.guild,
             )
-            await member.send(embed=dm)
-        except discord.HTTPException:
+            await asyncio.wait_for(member.send(embed=dm), timeout=2.0)
+        except Exception:
             pass
 
-        await member.kick(reason=f"{interaction.user}: {reason}")
+        try:
+            await member.kick(reason=f"{interaction.user}: {reason}")
+        except discord.Forbidden:
+            return await interaction.followup.send(
+                "*i don't have permission to kick this member.*", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            return await interaction.followup.send(
+                f"*kick failed: {e}*", ephemeral=True
+            )
+
         case_id = await self.send_mod_log(
             interaction.guild,
             "kick",
@@ -129,7 +147,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_OBSIDIAN,
             tag="303  •  kick",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="ban", description="ban a member from the server.")
     @app_commands.describe(
@@ -151,6 +169,8 @@ class ModerationCog(commands.Cog, name="Moderation"):
             return await interaction.response.send_message(err, ephemeral=True)
 
         assert interaction.guild is not None
+        await interaction.response.defer()
+
         try:
             dm = kyomi_embed(
                 description=f"you were banned from **{interaction.guild.name.lower()}**\n╰ **reason:** {reason}",
@@ -158,15 +178,24 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 tag="303  •  banned",
                 guild=interaction.guild,
             )
-            await member.send(embed=dm)
-        except discord.HTTPException:
+            await asyncio.wait_for(member.send(embed=dm), timeout=2.0)
+        except Exception:
             pass
 
-        await interaction.guild.ban(
-            member,
-            reason=f"{interaction.user}: {reason}",
-            delete_message_days=delete_days,
-        )
+        try:
+            await interaction.guild.ban(
+                member,
+                reason=f"{interaction.user}: {reason}",
+                delete_message_days=delete_days,
+            )
+        except discord.Forbidden:
+            return await interaction.followup.send(
+                "*i don't have permission to ban this member.*", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            return await interaction.followup.send(
+                f"*ban failed: {e}*", ephemeral=True
+            )
 
         case_id = await self.send_mod_log(
             interaction.guild,
@@ -181,7 +210,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_CRIMSON,
             tag="303  •  ban",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="unban", description="unban a user by their id.")
     @app_commands.describe(user_id="user id", reason="reason")
@@ -201,14 +230,23 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 "*enter a valid user id.*", ephemeral=True
             )
 
+        await interaction.response.defer()
         user_obj = discord.Object(id=uid)
         try:
             await interaction.guild.unban(
                 user_obj, reason=f"{interaction.user}: {reason}"
             )
         except discord.NotFound:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "*that user isn't banned.*", ephemeral=True
+            )
+        except discord.Forbidden:
+            return await interaction.followup.send(
+                "*i don't have permission to unban users.*", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            return await interaction.followup.send(
+                f"*unban failed: {e}*", ephemeral=True
             )
 
         case_id = await self.send_mod_log(
@@ -224,7 +262,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_OBSIDIAN,
             tag="303  •  unban",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="timeout", description="mute a member temporarily.")
     @app_commands.describe(
@@ -246,8 +284,19 @@ class ModerationCog(commands.Cog, name="Moderation"):
             return await interaction.response.send_message(err, ephemeral=True)
 
         assert interaction.guild is not None
+        await interaction.response.defer()
+
         duration = datetime.timedelta(minutes=minutes)
-        await member.timeout(duration, reason=f"{interaction.user}: {reason}")
+        try:
+            await member.timeout(duration, reason=f"{interaction.user}: {reason}")
+        except discord.Forbidden:
+            return await interaction.followup.send(
+                "*i don't have permission to timeout this member.*", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            return await interaction.followup.send(
+                f"*timeout failed: {e}*", ephemeral=True
+            )
 
         case_id = await self.send_mod_log(
             interaction.guild,
@@ -263,7 +312,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_OBSIDIAN,
             tag="303  •  mute",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="untimeout", description="unmute a member.")
     @app_commands.default_permissions(moderate_members=True)
@@ -279,7 +328,19 @@ class ModerationCog(commands.Cog, name="Moderation"):
             return await interaction.response.send_message(err, ephemeral=True)
 
         assert interaction.guild is not None
-        await member.timeout(None, reason=f"{interaction.user}: {reason}")
+        await interaction.response.defer()
+
+        try:
+            await member.timeout(None, reason=f"{interaction.user}: {reason}")
+        except discord.Forbidden:
+            return await interaction.followup.send(
+                "*i don't have permission to untimeout this member.*", ephemeral=True
+            )
+        except discord.HTTPException as e:
+            return await interaction.followup.send(
+                f"*untimeout failed: {e}*", ephemeral=True
+            )
+
         case_id = await self.send_mod_log(
             interaction.guild,
             "unmute",
@@ -293,7 +354,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_OBSIDIAN,
             tag="303  •  unmute",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @commands.command(name="purge", aliases=["clear", "clean"])
     @commands.has_permissions(manage_messages=True)
@@ -387,6 +448,8 @@ class ModerationCog(commands.Cog, name="Moderation"):
             return await interaction.response.send_message(err, ephemeral=True)
 
         assert interaction.guild is not None
+        await interaction.response.defer()
+
         warn_id = await self.bot.db.add_warning(
             interaction.guild.id, member.id, interaction.user.id, reason
         )
@@ -404,8 +467,8 @@ class ModerationCog(commands.Cog, name="Moderation"):
                 tag="303  •  warned",
                 guild=interaction.guild,
             )
-            await member.send(embed=dm)
-        except discord.HTTPException:
+            await asyncio.wait_for(member.send(embed=dm), timeout=2.0)
+        except Exception:
             pass
 
         case_id = await self.send_mod_log(
@@ -449,7 +512,7 @@ class ModerationCog(commands.Cog, name="Moderation"):
             color=COLOR_OBSIDIAN,
             tag="303  •  warn",
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="warnings", description="check a member's warnings.")
     @app_commands.default_permissions(moderate_members=True)

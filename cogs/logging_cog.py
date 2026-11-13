@@ -1,3 +1,4 @@
+from typing import Literal
 import datetime
 import discord
 from discord import app_commands
@@ -16,6 +17,165 @@ class LoggingCog(commands.Cog, name="Logging"):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @app_commands.command(
+        name="setlogs",
+        description="set the channel for server logs (mod actions, automod, audit events).",
+    )
+    @app_commands.describe(
+        channel="channel where logs will be sent",
+        category="type of logs to route here (default: all logs)",
+    )
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def setlogs_slash(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+        category: Literal["all logs (mod + audit)", "moderation only", "audit only"] = "all logs (mod + audit)",
+    ):
+        assert interaction.guild is not None
+        guild_id = interaction.guild.id
+
+        if category == "all logs (mod + audit)":
+            await self.bot.db.update_guild_setting(guild_id, "mod_log_channel_id", channel.id)
+            await self.bot.db.update_guild_setting(guild_id, "audit_log_channel_id", channel.id)
+            routing_desc = "mod actions (/ban, /kick, /warn, automod) + audit events (edits, deletes, joins)"
+        elif category == "moderation only":
+            await self.bot.db.update_guild_setting(guild_id, "mod_log_channel_id", channel.id)
+            routing_desc = "mod actions (/ban, /kick, /warn, /timeout, automod, antiraid)"
+        else:
+            await self.bot.db.update_guild_setting(guild_id, "audit_log_channel_id", channel.id)
+            routing_desc = "audit events (message edits, deletes, joins, leaves)"
+
+        # Send verification ping to the target channel
+        test_embed = kyomi_embed(
+            description=(
+                f"**logging channel linked**\n"
+                f"╰ **configured by:** {interaction.user.mention}\n"
+                f"╰ **routing:** `{category}`\n"
+                f"╰ *303 kyomi will stream real-time events to this channel.*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  logs",
+            guild=interaction.guild,
+        )
+        test_status = "verified (test ping delivered)"
+        try:
+            await channel.send(embed=test_embed)
+        except discord.Forbidden:
+            test_status = "⚠️ warning: bot lacks 'Send Messages' or 'Embed Links' permissions in that channel"
+        except Exception as e:
+            test_status = f"⚠️ delivery error: {e}"
+
+        confirm_embed = kyomi_embed(
+            description=(
+                f"**log channel configured**  ·  {channel.mention}\n"
+                f"╰ **events:** `{category}`\n"
+                f"╰ **routing:** {routing_desc}\n"
+                f"╰ **status:** *{test_status}*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  config",
+            guild=interaction.guild,
+        )
+        await interaction.response.send_message(embed=confirm_embed, ephemeral=True)
+
+    @app_commands.command(
+        name="logs",
+        description="check current moderation and audit logging channels.",
+    )
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def logs_slash(self, interaction: discord.Interaction):
+        assert interaction.guild is not None
+        settings = await self.bot.db.get_guild_settings(interaction.guild.id)
+        mod_ch = interaction.guild.get_channel(settings.get("mod_log_channel_id") or 0)
+        audit_ch = interaction.guild.get_channel(settings.get("audit_log_channel_id") or 0)
+        ticket_ch = interaction.guild.get_channel(settings.get("ticket_log_channel_id") or 0)
+
+        mod_str = mod_ch.mention if isinstance(mod_ch, discord.TextChannel) else "*not set*"
+        audit_str = audit_ch.mention if isinstance(audit_ch, discord.TextChannel) else "*not set*"
+        ticket_str = (
+            ticket_ch.mention
+            if isinstance(ticket_ch, discord.TextChannel)
+            else ("*falls back to mod log*" if mod_str != "*not set*" else "*not set*")
+        )
+
+        embed = kyomi_embed(
+            description=(
+                "**active log channels**\n"
+                f"╰ **mod logs:** {mod_str}\n"
+                f"╰ **audit logs:** {audit_str}\n"
+                f"╰ **ticket transcripts:** {ticket_str}\n\n"
+                "*(use `/setlogs <#channel>` or the dashboard to change)*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  logs",
+            guild=interaction.guild,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @commands.command(name="setlogs", aliases=["setlog", "modlog", "auditlog"])
+    @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def prefix_setlogs(self, ctx: commands.Context, channel: discord.TextChannel | None = None):
+        target = channel or ctx.channel
+        if not isinstance(target, discord.TextChannel):
+            return await ctx.send("*please specify a text channel.*")
+
+        await self.bot.db.update_guild_setting(ctx.guild.id, "mod_log_channel_id", target.id)
+        await self.bot.db.update_guild_setting(ctx.guild.id, "audit_log_channel_id", target.id)
+
+        test_embed = kyomi_embed(
+            description=(
+                f"**logging channel linked**\n"
+                f"╰ **configured by:** {ctx.author.mention}\n"
+                f"╰ **routing:** `all logs (mod + audit)`\n"
+                f"╰ *303 kyomi will stream real-time events to this channel.*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  logs",
+            guild=ctx.guild,
+        )
+        try:
+            await target.send(embed=test_embed)
+        except Exception:
+            pass
+
+        confirm = kyomi_embed(
+            description=(
+                f"**log channel configured**  ·  {target.mention}\n"
+                f"╰ **routing:** mod actions + audit events"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  config",
+            guild=ctx.guild,
+        )
+        await ctx.send(embed=confirm)
+
+    @commands.command(name="logs")
+    @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def prefix_logs(self, ctx: commands.Context):
+        settings = await self.bot.db.get_guild_settings(ctx.guild.id)
+        mod_ch = ctx.guild.get_channel(settings.get("mod_log_channel_id") or 0)
+        audit_ch = ctx.guild.get_channel(settings.get("audit_log_channel_id") or 0)
+        mod_str = mod_ch.mention if isinstance(mod_ch, discord.TextChannel) else "*not set*"
+        audit_str = audit_ch.mention if isinstance(audit_ch, discord.TextChannel) else "*not set*"
+
+        embed = kyomi_embed(
+            description=(
+                "**active log channels**\n"
+                f"╰ **mod logs:** {mod_str}\n"
+                f"╰ **audit logs:** {audit_str}\n\n"
+                "*(use `!setlogs <#channel>` to change)*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  logs",
+            guild=ctx.guild,
+        )
+        await ctx.send(embed=embed)
 
     config_group = app_commands.Group(
         name="config",
@@ -82,14 +242,19 @@ class LoggingCog(commands.Cog, name="Logging"):
         self, guild: discord.Guild, embed: discord.Embed
     ) -> None:
         settings = await self.bot.db.get_guild_settings(guild.id)
-        channel_id = settings.get("audit_log_channel_id")
+        channel_id = settings.get("audit_log_channel_id") or settings.get("mod_log_channel_id")
         if not channel_id:
             return
         channel = guild.get_channel(channel_id)
-        if isinstance(channel, discord.TextChannel):
+        if not channel:
+            try:
+                channel = await guild.fetch_channel(channel_id)
+            except Exception:
+                channel = None
+        if isinstance(channel, (discord.TextChannel, discord.Thread)):
             try:
                 await channel.send(embed=embed)
-            except discord.HTTPException:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
 
     @commands.Cog.listener()

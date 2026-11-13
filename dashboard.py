@@ -623,6 +623,31 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
           </div>
 
+          <!-- Logging Channels Card -->
+          <div class="dark-card" style="margin-bottom: 16px;">
+            <div class="card-title-bar">
+              <div class="card-title">✦ logging channels</div>
+              <span class="badge" id="logsChannelBadge">not linked</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
+              stream moderation actions, automod infractions, deleted/edited messages, and joins/leaves directly to discord channels.
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">moderation logs (/ban, /kick, /warn, automod)</div>
+                <select id="sel_mod_log_ch" class="guild-selector" style="width: 100%;" onchange="updateLogChannel('mod_log_channel_id', this.value)">
+                  <option value="">-- select text channel (disabled) --</option>
+                </select>
+              </div>
+              <div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">audit logs (message deletes, edits, joins, leaves)</div>
+                <select id="sel_audit_log_ch" class="guild-selector" style="width: 100%;" onchange="updateLogChannel('audit_log_channel_id', this.value)">
+                  <option value="">-- select text channel (disabled) --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           <!-- Mod Cases Card -->
           <div class="dark-card">
             <div class="card-title-bar">
@@ -996,6 +1021,43 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           }
         }
 
+        // Populate Log Channels dropdowns
+        const modSelect = document.getElementById("sel_mod_log_ch");
+        const auditSelect = document.getElementById("sel_audit_log_ch");
+        if (data.text_channels) {
+          const modVal = (s.mod_log_channel_id && s.mod_log_channel_id !== "0") ? String(s.mod_log_channel_id) : "";
+          const auditVal = (s.audit_log_channel_id && s.audit_log_channel_id !== "0") ? String(s.audit_log_channel_id) : "";
+
+          if (modSelect) {
+            modSelect.innerHTML = '<option value="">-- select text channel (disabled) --</option>';
+            data.text_channels.forEach(tc => {
+              const opt = document.createElement("option");
+              opt.value = String(tc.id);
+              opt.textContent = "# " + tc.name;
+              if (String(tc.id) === modVal) opt.selected = true;
+              modSelect.appendChild(opt);
+            });
+          }
+
+          if (auditSelect) {
+            auditSelect.innerHTML = '<option value="">-- select text channel (disabled) --</option>';
+            data.text_channels.forEach(tc => {
+              const opt = document.createElement("option");
+              opt.value = String(tc.id);
+              opt.textContent = "# " + tc.name;
+              if (String(tc.id) === auditVal) opt.selected = true;
+              auditSelect.appendChild(opt);
+            });
+          }
+
+          const logBadge = document.getElementById("logsChannelBadge");
+          if (logBadge) {
+            const hasLogs = Boolean(modVal || auditVal);
+            logBadge.textContent = hasLogs ? "active" : "not linked";
+            logBadge.className = hasLogs ? "badge green" : "badge";
+          }
+        }
+
         renderWords(data.words || []);
         renderModCases(data.cases || []);
       } catch (e) {
@@ -1116,6 +1178,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     async function syncStatusVc() {
       const vcSelect = document.getElementById("sel_status_vc");
       if (vcSelect) updateStatusVc(vcSelect.value);
+    }
+
+    async function updateLogChannel(key, val) {
+      if (!currentGuildId) return;
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: key, value: val || "" })
+        });
+        if (res.ok) {
+          showBanner(val ? "log channel linked" : "log channel disabled");
+          const modVal = document.getElementById("sel_mod_log_ch")?.value;
+          const auditVal = document.getElementById("sel_audit_log_ch")?.value;
+          const logBadge = document.getElementById("logsChannelBadge");
+          if (logBadge) {
+            const hasLogs = Boolean(modVal || auditVal);
+            logBadge.textContent = hasLogs ? "active" : "not linked";
+            logBadge.className = hasLogs ? "badge green" : "badge";
+          }
+        } else {
+          showBanner("failed to save log channel", true);
+        }
+      } catch (e) {
+        showBanner("network error updating log channel", true);
+      }
     }
 
     async function syncCommands() {
@@ -1656,10 +1744,15 @@ class WebDashboard:
         cases = await self.db.get_recent_mod_cases(guild_id, limit=5)
         guild = self.bot.get_guild(guild_id)
         voice_channels = []
+        text_channels = []
         if guild:
             voice_channels = [
                 {"id": str(vc.id), "name": vc.name}
                 for vc in guild.voice_channels
+            ]
+            text_channels = [
+                {"id": str(tc.id), "name": tc.name}
+                for tc in guild.text_channels
             ]
         # Convert all snowflake IDs to strings to protect against JavaScript 53-bit integer overflow
         safe_settings = dict(settings)
@@ -1677,6 +1770,7 @@ class WebDashboard:
             "words": words,
             "cases": cases,
             "voice_channels": voice_channels,
+            "text_channels": text_channels,
         })
 
     async def handle_update_setting(self, request: web.Request) -> web.Response:
