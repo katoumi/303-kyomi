@@ -648,6 +648,26 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             </div>
           </div>
 
+          <!-- Timeout-Exempt Channels Card -->
+          <div class="dark-card" style="margin-bottom: 16px;">
+            <div class="card-title-bar">
+              <div class="card-title">◇ timeout-exempt channels</div>
+              <span class="badge" id="exemptCountBadge">0 channels</span>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px;">
+              bot will never timeout members for spam, mass pings, or crash-text in these channels (e.g. #spam, #bot-commands).
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+              <select id="sel_exempt_ch" class="guild-selector" style="flex: 1;">
+                <option value="">-- select channel to exempt --</option>
+              </select>
+              <button class="btn-dark crimson" onclick="addExemptChannel()">add</button>
+            </div>
+            <div class="word-cloud" id="exemptChannelsList">
+              <span class="badge">no exempt channels</span>
+            </div>
+          </div>
+
           <!-- Mod Cases Card -->
           <div class="dark-card">
             <div class="card-title-bar">
@@ -1056,7 +1076,25 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             logBadge.textContent = hasLogs ? "active" : "not linked";
             logBadge.className = hasLogs ? "badge green" : "badge";
           }
+
+          const exemptSelect = document.getElementById("sel_exempt_ch");
+          if (exemptSelect) {
+            exemptSelect.innerHTML = '<option value="">-- select channel to exempt --</option>';
+            data.text_channels.forEach(tc => {
+              const opt = document.createElement("option");
+              opt.value = String(tc.id);
+              opt.textContent = "# " + tc.name;
+              exemptSelect.appendChild(opt);
+            });
+          }
         }
+
+        window._cachedTextChannels = data.text_channels || [];
+        window._exemptChannelIds = (s.automod_exempt_channels ? String(s.automod_exempt_channels) : "")
+          .split(",")
+          .map(x => x.trim())
+          .filter(Boolean);
+        renderExemptChannels();
 
         renderWords(data.words || []);
         renderModCases(data.cases || []);
@@ -1204,6 +1242,66 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       } catch (e) {
         showBanner("network error updating log channel", true);
       }
+    }
+
+    function renderExemptChannels() {
+      const box = document.getElementById("exemptChannelsList");
+      const badge = document.getElementById("exemptCountBadge");
+      const ids = window._exemptChannelIds || [];
+      const chans = window._cachedTextChannels || [];
+      if (badge) {
+        badge.textContent = `${ids.length} channel${ids.length === 1 ? "" : "s"}`;
+        badge.className = ids.length > 0 ? "badge green" : "badge";
+      }
+      if (!box) return;
+      box.innerHTML = "";
+      if (ids.length === 0) {
+        box.innerHTML = '<span class="badge">no exempt channels</span>';
+        return;
+      }
+      ids.forEach(cid => {
+        const found = chans.find(c => String(c.id) === String(cid));
+        const label = found ? `#${found.name}` : `#${cid}`;
+        const pill = document.createElement("span");
+        pill.className = "word-chip";
+        pill.innerHTML = `${escapeHtml(label)} <span class="word-del" onclick="removeExemptChannel('${cid}')">×</span>`;
+        box.appendChild(pill);
+      });
+    }
+
+    async function saveExemptChannels() {
+      const val = (window._exemptChannelIds || []).join(",");
+      try {
+        const res = await fetch(`/api/guild/${currentGuildId}/setting`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ key: "automod_exempt_channels", value: val })
+        });
+        if (res.ok) {
+          showBanner("updated timeout-exempt channels");
+          renderExemptChannels();
+        } else {
+          showBanner("failed to save exempt channels", true);
+        }
+      } catch (e) {
+        showBanner("network error saving exempt channels", true);
+      }
+    }
+
+    async function addExemptChannel() {
+      const sel = document.getElementById("sel_exempt_ch");
+      const cid = sel ? sel.value : "";
+      if (!cid) return;
+      window._exemptChannelIds = window._exemptChannelIds || [];
+      if (!window._exemptChannelIds.includes(cid)) {
+        window._exemptChannelIds.push(cid);
+        await saveExemptChannels();
+      }
+    }
+
+    async function removeExemptChannel(cid) {
+      window._exemptChannelIds = (window._exemptChannelIds || []).filter(x => String(x) !== String(cid));
+      await saveExemptChannels();
     }
 
     async function syncCommands() {
@@ -1782,7 +1880,9 @@ class WebDashboard:
         val = data.get("value")
         # Safely convert snowflake strings to integer for SQLite storage
         clean_val = val
-        if isinstance(val, str) and val.isdigit():
+        if key == "automod_exempt_channels":
+            clean_val = str(val or "")
+        elif isinstance(val, str) and val.isdigit():
             clean_val = int(val)
         elif val == "" or val == "0":
             clean_val = None

@@ -522,6 +522,96 @@ class AutoModCog(commands.Cog, name="AutoMod"):
         view = await self.build_hud_view(interaction.guild)
         await interaction.followup.send("`303  •  automod`", view=view, ephemeral=True)
 
+    @staticmethod
+    def _parse_exempt_ids(settings: dict) -> list[int]:
+        raw = settings.get("automod_exempt_channels") or ""
+        ids: list[int] = []
+        for part in raw.split(","):
+            part = part.strip()
+            if part.isdigit():
+                val = int(part)
+                if val not in ids:
+                    ids.append(val)
+        return ids
+
+    async def _handle_exempt_toggle(
+        self, guild: discord.Guild, channel: discord.TextChannel | None
+    ) -> discord.Embed:
+        settings = await self.bot.db.get_guild_settings(guild.id)
+        ids = self._parse_exempt_ids(settings)
+
+        status_line = ""
+        if channel is not None:
+            if channel.id in ids:
+                ids.remove(channel.id)
+                status_line = f"removed {channel.mention} from timeout-exempt channels.\n\n"
+            else:
+                ids.append(channel.id)
+                status_line = f"added {channel.mention} as a timeout-exempt channel.\n\n"
+            await self.bot.db.update_guild_setting(
+                guild.id,
+                "automod_exempt_channels",
+                ",".join(str(x) for x in ids),
+            )
+
+        if ids:
+            ch_mentions = "\n".join(f"╰ <#{cid}>" for cid in ids)
+        else:
+            ch_mentions = "╰ *none configured*"
+
+        return kyomi_embed(
+            description=(
+                f"{status_line}**timeout-exempt channels**\n"
+                f"{ch_mentions}\n\n"
+                "*(bot will not timeout members for spam, mass pings, or crash-text in these channels)*"
+            ),
+            color=COLOR_OBSIDIAN,
+            tag="303  •  exempt",
+            guild=guild,
+        )
+
+    @automod_group.command(
+        name="exempt",
+        description="toggle a channel where the bot won't timeout members (leave empty to list).",
+    )
+    @app_commands.describe(channel="channel to add or remove from timeout exemptions")
+    async def automod_exempt(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel | None = None,
+    ):
+        assert interaction.guild is not None
+        embed = await self._handle_exempt_toggle(interaction.guild, channel)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(
+        name="exempt",
+        description="set or remove a timeout-exempt channel (leave empty to list).",
+    )
+    @app_commands.describe(channel="channel where automod won't timeout members")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.guild_only()
+    async def exempt_slash(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel | None = None,
+    ):
+        assert interaction.guild is not None
+        embed = await self._handle_exempt_toggle(interaction.guild, channel)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @commands.command(name="exempt", aliases=["timeoutexempt", "exemptchannel"])
+    @commands.has_permissions(manage_guild=True)
+    @commands.guild_only()
+    async def exempt_prefix(
+        self,
+        ctx: commands.Context,
+        channel: discord.TextChannel | None = None,
+    ):
+        assert ctx.guild is not None
+        embed = await self._handle_exempt_toggle(ctx.guild, channel)
+        await ctx.send(embed=embed)
+
     async def _substitute_and_relay(
         self, message: discord.Message, new_content: str, matched_words: list[str]
     ) -> None:
@@ -779,10 +869,17 @@ class AutoModCog(commands.Cog, name="AutoMod"):
             or "rule" in getattr(message.channel, "name", "").lower()
         )
 
+        exempt_ids = set(self._parse_exempt_ids(settings))
+        parent_id = getattr(message.channel, "parent_id", None)
+        is_exempt_channel = (
+            message.channel.id in exempt_ids
+            or (parent_id is not None and parent_id in exempt_ids)
+        )
+
         # Intercepts raid payloads from non-staff sources (user-apps, webhooks, rogue bots, raiders)
         is_crash = False
         crash_reason = ""
-        if not is_staff and not is_announcement_channel:
+        if not is_staff and not is_announcement_channel and not is_exempt_channel:
             is_crash, crash_reason = check_crash_flood(message.content)
         if is_crash:
             self.automod_deleted_ids.append(message.id)
@@ -839,9 +936,10 @@ class AutoModCog(commands.Cog, name="AutoMod"):
                 await self._substitute_and_relay(message, censored_content, matched)
                 return
 
-        # Staff exemption for remaining automod modules (invites, external links, mass pings, velocity spam)
+        # Staff or exempt-channel bypass for remaining automod modules (invites, external links, mass pings, velocity spam)
         if (
-            message.author.guild_permissions.administrator
+            is_exempt_channel
+            or message.author.guild_permissions.administrator
             or message.author.guild_permissions.manage_messages
         ):
             return
